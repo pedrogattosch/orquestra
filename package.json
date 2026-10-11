@@ -1,11 +1,22 @@
 {
   "name": "orquestra",
+  "productName": "Orquestra",
+  "desktopName": "orquestra.desktop",
   "version": "0.1.0",
   "description": "Tela infinita para visualizar e organizar vários agentes de código em terminais.",
-  "main": "server.js",
+  "homepage": "https://github.com/pedrogattosch/orquestra",
+  "main": "electron/main.js",
   "private": true,
+  "author": {
+    "name": "pedrogattosch",
+    "email": "pedrogattosch@gmail.com"
+  },
   "scripts": {
-    "start": "node server.js"
+    "start": "electron --ozone-platform=x11 .",
+    "test": "node --test",
+    "postinstall": "electron-builder install-app-deps",
+    "dist:linux": "electron-builder --linux deb",
+    "dist:win": "electron-builder --win nsis"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.10.0",
@@ -16,5 +27,67 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "devDependencies": {
+    "electron": "44.4.5",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "dev.orquestra.app",
+    "productName": "Orquestra",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**",
+      "public/**",
+      "server.js",
+      "git.js",
+      "build/icon.png",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/node-pty/**"
+    ],
+    "extraResources": [
+      {
+        "from": "bin",
+        "to": "bin"
+      }
+    ],
+    "linux": {
+      "target": [
+        "deb"
+      ],
+      "icon": "build/icon.png",
+      "category": "Development",
+      "executableName": "orquestra",
+      "executableArgs": [
+        "--ozone-platform=x11"
+      ],
+      "syncDesktopName": true
+    },
+    "deb": {
+      "afterRemove": "build/linux/after-remove.sh",
+      "fpm": [
+        "--before-remove",
+        "build/linux/before-remove.sh"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Orquestra"
+    }
   }
 }

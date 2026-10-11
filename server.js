@@ -1,27 +1,23 @@
-// Orquestra — servidor local que abre terminais reais e os entrega ao navegador.
-// Cada terminal é uma sessão node-pty que continua viva se você recarregar a página.
+// Orquestra — servidor local que abre terminais reais e os entrega à janela do aplicativo.
+// Guarda sessões, terminais e setas em disco para restaurar o layout ao abrir de novo.
 
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { execFileSync } = require('child_process');
+const crypto = require('crypto');
+const { spawn } = require('child_process');
 const express = require('express');
 const { WebSocketServer } = require('ws');
 const pty = require('node-pty');
+const git = require('./git');
 
-const PORT = Number(process.env.PORT) || 4321;
-const HOST = '127.0.0.1'; // só aceita conexões da sua própria máquina
 const MAX_BUFFER = 200 * 1024; // quanto de saída guardar para reexibir ao reconectar
+const AGENTS = { claude: 'claude', codex: 'codex', gemini: 'gemini', antigravity: 'antigravity' };
+const ARROW_TYPES = ['comando', 'dependencia'];
+const COLORS = ['#7c9cff', '#4ade80', '#f5b13d', '#f472b6', '#38bdf8', '#a78bfa', '#fb923c', '#2dd4bf'];
 
-const app = express();
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/vendor/xterm', express.static(path.join(__dirname, 'node_modules/@xterm/xterm')));
-app.use('/vendor/addon-fit', express.static(path.join(__dirname, 'node_modules/@xterm/addon-fit')));
-
-/** id -> { pty, buffer, clients:Set, info } */
-const sessions = new Map();
+const uid = () => crypto.randomUUID();
 
 function defaultShell() {
   if (process.platform === 'win32') return { file: 'powershell.exe', args: ['-NoLogo'] };
@@ -35,155 +31,427 @@ function expandHome(p) {
   return p;
 }
 
-function git(cwd, args) {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+const isDir = (p) => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
+
+function isInside(p, dir) {
+  const rel = path.relative(dir, path.resolve(p));
+  return !rel.startsWith('..') && !path.isAbsolute(rel);
+}
+
+class HttpError extends Error {
+  constructor(status, message, extra) { super(message); this.status = status; this.extra = extra; }
 }
 
 /**
- * Cria (ou reaproveita) um worktree irmão da pasta do repositório:
- *   /projetos/app  +  branch "login"  ->  /projetos/app-login
+ * Inicia o servidor em 127.0.0.1.
+ * dataDir: onde salvar o estado; binDir: pasta com o comando orquestra-abrir;
+ * nodePath: executável usado para rodar esse comando.
  */
-function ensureWorktree(repoDir, branch) {
-  const root = git(repoDir, ['rev-parse', '--show-toplevel']);
-  const folder = `${path.basename(root)}-${branch.replace(/[\\/:*?"<>| ]+/g, '-')}`;
-  const target = path.join(path.dirname(root), folder);
+function start({ dataDir, binDir, nodePath, port = 0 }) {
+  const stateFile = path.join(dataDir, 'estado.json');
+  const live = new Map(); // id do terminal -> { pty, buffer, clients:Set, exited }
+  const eventClients = new Set();
+  let warnings = [];
+  let url = '';
 
-  if (fs.existsSync(target)) return target; // já existe: só usa
-
-  let branchExists = true;
-  try {
-    git(root, ['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`]);
-  } catch {
-    branchExists = false;
+  // ---------------------------------------------------------------- estado
+  function load() {
+    try { return JSON.parse(fs.readFileSync(stateFile, 'utf8')); } catch { return null; }
   }
-  const args = branchExists
-    ? ['worktree', 'add', target, branch]
-    : ['worktree', 'add', '-b', branch, target];
-  git(root, args);
-  return target;
-}
+  const state = load() || { activeSession: null, sessions: [] };
 
-function createSession(id, { cwd, cmd, branch, cols, rows }) {
-  let dir = path.resolve(expandHome(cwd) || os.homedir());
-  if (!fs.existsSync(dir)) throw new Error(`Pasta não encontrada: ${dir}`);
-
-  let worktree = null;
-  if (branch) {
-    dir = ensureWorktree(dir, branch);
-    worktree = dir;
+  let saveTimer = null;
+  function saveNow() {
+    clearTimeout(saveTimer); saveTimer = null;
+    fs.mkdirSync(dataDir, { recursive: true });
+    fs.writeFileSync(stateFile + '.tmp', JSON.stringify(state, null, 2));
+    fs.renameSync(stateFile + '.tmp', stateFile);
+  }
+  function changed() {
+    if (!saveTimer) saveTimer = setTimeout(saveNow, 300);
+    const msg = JSON.stringify({ t: 'state', state: publicState() });
+    for (const ws of eventClients) if (ws.readyState === 1) ws.send(msg);
   }
 
-  const shell = defaultShell();
-  const term = pty.spawn(shell.file, shell.args, {
-    name: 'xterm-256color',
-    cols: cols || 100,
-    rows: rows || 30,
-    cwd: dir,
-    env: { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' },
-  });
-
-  const session = { pty: term, buffer: '', clients: new Set(), info: { id, cwd: dir, worktree, cmd, branch } };
-
-  term.onData((data) => {
-    session.buffer += data;
-    if (session.buffer.length > MAX_BUFFER) session.buffer = session.buffer.slice(-MAX_BUFFER);
-    const msg = JSON.stringify({ t: 'out', d: data });
-    for (const ws of session.clients) if (ws.readyState === 1) ws.send(msg);
-  });
-
-  term.onExit(({ exitCode }) => {
-    const msg = JSON.stringify({ t: 'exit', code: exitCode });
-    for (const ws of session.clients) if (ws.readyState === 1) ws.send(msg);
-    if (sessions.get(id) === session) sessions.delete(id);
-  });
-
-  // Abre o shell e já dispara o agente dentro dele. Se o agente fechar, o terminal continua aberto.
-  if (cmd && cmd.trim()) setTimeout(() => term.write(cmd.trim() + '\r'), 300);
-
-  sessions.set(id, session);
-  return session;
-}
-
-app.get('/api/defaults', (_req, res) => {
-  res.json({ home: os.homedir(), cwd: process.cwd(), platform: process.platform });
-});
-
-app.get('/api/sessions', (_req, res) => {
-  res.json([...sessions.values()].map((s) => s.info));
-});
-
-const server = http.createServer(app);
-const wss = new WebSocketServer({ noServer: true });
-
-// Protege contra sites maliciosos abrindo terminais na sua máquina pelo navegador.
-function originAllowed(origin) {
-  if (!origin) return true; // clientes fora do navegador
-  try {
-    const u = new URL(origin);
-    return (u.hostname === 'localhost' || u.hostname === '127.0.0.1') && Number(u.port) === PORT;
-  } catch {
-    return false;
+  function publicState() {
+    return { ...state, live: Object.fromEntries([...live].map(([id, l]) => [id, !l.exited])) };
   }
-}
 
-server.on('upgrade', (req, socket, head) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  if (url.pathname !== '/term' || !originAllowed(req.headers.origin)) {
-    socket.destroy();
-    return;
+  function newSession(name) {
+    const used = new Set(state.sessions.map((s) => s.name));
+    let n = state.sessions.length + 1;
+    while (!name && used.has(`Sessão ${n}`)) n++;
+    const s = { id: uid(), name: name || `Sessão ${n}`, view: { x: 0, y: 0, s: 1 }, terminals: [], arrows: [] };
+    state.sessions.push(s);
+    return s;
   }
-  wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, url));
-});
 
-wss.on('connection', (ws, url) => {
-  const p = url.searchParams;
-  const id = p.get('id');
-  if (!id) return ws.close();
+  const getSession = (id) => {
+    const s = state.sessions.find((x) => x.id === id);
+    if (!s) throw new HttpError(404, 'Sessão não encontrada.');
+    return s;
+  };
 
-  let session = sessions.get(id);
-  try {
-    if (!session) {
-      session = createSession(id, {
-        cwd: p.get('cwd') || '',
-        cmd: p.get('cmd') || '',
-        branch: (p.get('branch') || '').trim(),
-        cols: Number(p.get('cols')) || 100,
-        rows: Number(p.get('rows')) || 30,
+  function findTerminal(id) {
+    for (const session of state.sessions) {
+      const term = session.terminals.find((t) => t.id === id);
+      if (term) return { session, term };
+    }
+    throw new HttpError(404, 'Terminal não encontrado.');
+  }
+
+  function uniqueName(session, base) {
+    const used = new Set(session.terminals.map((t) => t.name));
+    let name = base, i = 2;
+    while (used.has(name)) name = `${base} ${i++}`;
+    return name;
+  }
+
+  // ---------------------------------------------------------------- terminais
+  function spawnTerminal(cfg) {
+    const shell = defaultShell();
+    const sep = process.platform === 'win32' ? ';' : ':';
+    const term = pty.spawn(shell.file, shell.args, {
+      name: 'xterm-256color',
+      cols: 100,
+      rows: 30,
+      cwd: cfg.cwd,
+      env: {
+        ...process.env,
+        TERM: 'xterm-256color',
+        COLORTERM: 'truecolor',
+        ORQUESTRA_URL: url,
+        ORQUESTRA_TERMINAL_ID: cfg.id,
+        ORQUESTRA_NODE: nodePath,
+        PATH: binDir + sep + (process.env.PATH || ''),
+      },
+    });
+
+    const prev = live.get(cfg.id);
+    const entry = { pty: term, buffer: '', clients: prev ? prev.clients : new Set(), exited: false };
+    live.set(cfg.id, entry);
+
+    term.onData((data) => {
+      entry.buffer += data;
+      if (entry.buffer.length > MAX_BUFFER) entry.buffer = entry.buffer.slice(-MAX_BUFFER);
+      const msg = JSON.stringify({ t: 'out', d: data });
+      for (const ws of entry.clients) if (ws.readyState === 1) ws.send(msg);
+    });
+
+    term.onExit(({ exitCode }) => {
+      if (live.get(cfg.id) !== entry) return; // terminal reiniciado ou finalizado
+      entry.exited = true;
+      const msg = JSON.stringify({ t: 'exit', code: exitCode });
+      for (const ws of entry.clients) if (ws.readyState === 1) ws.send(msg);
+      changed();
+    });
+
+    // Abre o shell e já dispara o agente dentro dele. Se o agente fechar, o terminal continua aberto.
+    if (AGENTS[cfg.agent]) setTimeout(() => term.write(AGENTS[cfg.agent] + '\r'), 300);
+    return entry;
+  }
+
+  function killTerminal(id) {
+    const entry = live.get(id);
+    live.delete(id);
+    if (!entry || entry.exited) return Promise.resolve();
+    return new Promise((resolve) => {
+      entry.pty.onExit(() => resolve());
+      try { entry.pty.kill(); } catch { resolve(); }
+      setTimeout(resolve, 2000); // não espera para sempre por um processo teimoso
+    });
+  }
+
+  function createTerminal(body) {
+    const dir = path.resolve(expandHome(String(body.dir || '').trim()) || '.');
+    if (!String(body.dir || '').trim() || !isDir(dir)) throw new HttpError(400, `Pasta não encontrada: ${dir}`);
+    const agent = body.agent || '';
+    if (agent && !AGENTS[agent]) throw new HttpError(400, `Agente desconhecido: ${agent}`);
+
+    let parent = null;
+    if (body.parentId) parent = findTerminal(body.parentId);
+    const session = parent ? parent.session : getSession(body.sessionId || state.activeSession);
+
+    let cwd = dir;
+    if (body.worktreeBranch) {
+      try {
+        cwd = git.ensureWorktree(dir, String(body.worktreeBranch).trim());
+      } catch (err) {
+        throw new HttpError(400, (err.stderr && String(err.stderr).trim()) || err.message);
+      }
+    }
+    const branch = git.currentBranch(cwd);
+
+    const w = 720, h = 440;
+    let { x, y } = body;
+    if (parent) {
+      // à direita de quem pediu, descendo até achar um espaço sem outro terminal
+      const p = parent.term, gap = 40;
+      const hits = (t) => x < t.x + t.w + gap && x + w + gap > t.x && y < t.y + t.h + gap && y + h + gap > t.y;
+      x = p.x + p.w + 80;
+      y = p.y;
+      while (session.terminals.some(hits)) y += h + gap;
+    }
+    const cfg = {
+      id: uid(),
+      name: uniqueName(session, String(body.name || '').trim() || `${agent || 'terminal'} · ${branch || path.basename(cwd)}`),
+      cwd,
+      branch,
+      agent,
+      x: Math.round(Number(x) || 0),
+      y: Math.round(Number(y) || 0),
+      w,
+      h,
+      color: COLORS[session.terminals.length % COLORS.length],
+    };
+    session.terminals.push(cfg);
+    if (parent) session.arrows.push({ id: uid(), from: parent.term.id, to: cfg.id, type: 'comando' });
+    spawnTerminal(cfg);
+    changed();
+    return cfg;
+  }
+
+  // Restaura as sessões salvas: cada terminal ganha um shell novo na mesma pasta, com o mesmo agente.
+  function restore() {
+    for (const session of state.sessions) {
+      session.terminals = session.terminals.filter((t) => {
+        if (isDir(t.cwd)) return true;
+        warnings.push(`"${t.name}" não foi restaurado: a pasta ${t.cwd} não existe mais.`);
+        return false;
       });
-    } else if (session.buffer) {
-      ws.send(JSON.stringify({ t: 'out', d: session.buffer })); // reexibe o histórico
+      const ids = new Set(session.terminals.map((t) => t.id));
+      session.arrows = session.arrows.filter((a) => ids.has(a.from) && ids.has(a.to));
+      for (const t of session.terminals) spawnTerminal(t);
     }
-  } catch (err) {
-    const msg = (err.stderr && String(err.stderr).trim()) || err.message;
-    ws.send(JSON.stringify({ t: 'error', d: msg }));
-    return ws.close();
+    if (!state.sessions.length) newSession();
+    if (!state.sessions.some((s) => s.id === state.activeSession)) state.activeSession = state.sessions[0].id;
+    changed();
   }
 
-  session.clients.add(ws);
-  ws.send(JSON.stringify({ t: 'info', ...session.info }));
+  function openInVSCode(dir) {
+    return new Promise((resolve, reject) => {
+      const win = process.platform === 'win32';
+      const child = spawn('code', [win ? `"${dir}"` : dir], { detached: true, stdio: 'ignore', shell: win });
+      const fail = () => reject(new HttpError(500, 'Não consegui abrir o VS Code. Verifique se o comando "code" está instalado.'));
+      child.on('error', fail);
+      child.on('exit', (code) => (code === 0 ? resolve() : fail()));
+      setTimeout(resolve, 5000); // o VS Code às vezes continua rodando no mesmo processo
+      child.unref();
+    });
+  }
 
-  ws.on('message', (raw) => {
-    let m;
-    try { m = JSON.parse(raw); } catch { return; }
-    if (m.t === 'in' && typeof m.d === 'string') session.pty.write(m.d);
-    else if (m.t === 'resize' && m.cols > 0 && m.rows > 0) {
-      try { session.pty.resize(Math.floor(m.cols), Math.floor(m.rows)); } catch {}
-    } else if (m.t === 'kill') {
-      if (sessions.get(id) === session) sessions.delete(id);
-      try { session.pty.kill(); } catch {}
+  // ---------------------------------------------------------------- HTTP
+  const app = express();
+  const server = http.createServer(app);
+  const wss = new WebSocketServer({ noServer: true });
+
+  // Só aceita pedidos desta máquina e da própria janela do Orquestra (nunca de sites no navegador).
+  function requestAllowed(req) {
+    const { port: p } = server.address();
+    const hosts = [`127.0.0.1:${p}`, `localhost:${p}`];
+    if (!hosts.includes(req.headers.host)) return false;
+    const origin = req.headers.origin;
+    return !origin || hosts.some((h) => origin === `http://${h}`);
+  }
+
+  app.use((req, res, next) => (requestAllowed(req) ? next() : res.status(403).end()));
+  app.use(express.json());
+  app.use(express.static(path.join(__dirname, 'public')));
+  app.use('/vendor/xterm', express.static(path.dirname(require.resolve('@xterm/xterm/package.json'))));
+  app.use('/vendor/addon-fit', express.static(path.dirname(require.resolve('@xterm/addon-fit/package.json'))));
+
+  const route = (fn) => async (req, res) => {
+    try {
+      res.json((await fn(req)) || { ok: true });
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message, ...(err.extra || {}) });
     }
+  };
+
+  app.get('/api/defaults', route(() => ({ home: os.homedir(), platform: process.platform })));
+  app.get('/api/state', route(() => publicState()));
+
+  app.get('/api/git', route((req) => {
+    const dir = path.resolve(expandHome(String(req.query.dir || '')));
+    if (!req.query.dir || !isDir(dir)) return { exists: false };
+    return { exists: true, dir, repo: git.repoInfo(dir) };
+  }));
+
+  app.post('/api/sessions', route(() => {
+    const s = newSession();
+    state.activeSession = s.id;
+    changed();
+    return s;
+  }));
+
+  app.patch('/api/sessions/:id', route((req) => {
+    const s = getSession(req.params.id);
+    if (typeof req.body.name === 'string' && req.body.name.trim()) s.name = req.body.name.trim();
+    if (req.body.view) s.view = { x: +req.body.view.x || 0, y: +req.body.view.y || 0, s: +req.body.view.s || 1 };
+    changed();
+  }));
+
+  app.delete('/api/sessions/:id', route((req) => {
+    const s = getSession(req.params.id);
+    if (s.terminals.length) {
+      const n = s.terminals.length;
+      throw new HttpError(409, `Finalize ${n === 1 ? 'o terminal' : `os ${n} terminais`} desta sessão antes de fechá-la.`);
+    }
+    if (state.sessions.length === 1) throw new HttpError(409, 'Esta é a única sessão.');
+    state.sessions = state.sessions.filter((x) => x !== s);
+    if (state.activeSession === s.id) state.activeSession = state.sessions[0].id;
+    changed();
+  }));
+
+  app.put('/api/active', route((req) => {
+    state.activeSession = getSession(req.body.id).id;
+    changed();
+  }));
+
+  app.post('/api/terminals', route((req) => createTerminal(req.body)));
+
+  app.patch('/api/terminals/:id', route((req) => {
+    const { term } = findTerminal(req.params.id);
+    const b = req.body;
+    if (typeof b.name === 'string' && b.name.trim()) term.name = b.name.trim();
+    for (const k of ['x', 'y']) if (Number.isFinite(b[k])) term[k] = Math.round(b[k]);
+    if (Number.isFinite(b.w)) term.w = Math.max(320, Math.round(b.w));
+    if (Number.isFinite(b.h)) term.h = Math.max(200, Math.round(b.h));
+    changed();
+  }));
+
+  app.post('/api/terminals/:id/restart', route(async (req) => {
+    const { term } = findTerminal(req.params.id);
+    const entry = live.get(term.id);
+    if (entry && !entry.exited) {
+      entry.exited = true; // o onExit do processo antigo não deve marcar o novo como encerrado
+      try { entry.pty.kill(); } catch {}
+    }
+    spawnTerminal(term);
+    changed();
+  }));
+
+  app.post('/api/terminals/:id/vscode', route(async (req) => {
+    await openInVSCode(findTerminal(req.params.id).term.cwd);
+  }));
+
+  app.get('/api/terminals/:id/finish-info', route((req) => {
+    const wt = git.worktreeOf(findTerminal(req.params.id).term.cwd);
+    return { worktree: wt ? wt.path : null, branch: wt ? wt.branch : null };
+  }));
+
+  app.post('/api/terminals/:id/finish', route(async (req) => {
+    const { session, term } = findTerminal(req.params.id);
+    if (req.body.deleteWorktree) {
+      const check = git.checkDelete(term.cwd);
+      const others = state.sessions.flatMap((s) => s.terminals)
+        .filter((t) => t !== term && check.worktree && isInside(t.cwd, check.worktree.path));
+      if (others.length) check.reasons.push(`Outro terminal ainda está aberto neste worktree: ${others.map((t) => t.name).join(', ')}.`);
+      if (check.reasons.length) throw new HttpError(409, check.reasons.join(' '), { reasons: check.reasons });
+    }
+    await killTerminal(term.id);
+    session.terminals = session.terminals.filter((t) => t !== term);
+    session.arrows = session.arrows.filter((a) => a.from !== term.id && a.to !== term.id);
+    changed();
+    if (req.body.deleteWorktree) {
+      try {
+        git.deleteWorktree(term.cwd);
+      } catch (err) {
+        throw new HttpError(500, `O terminal foi fechado, mas não consegui excluir o worktree: ${(err.stderr && String(err.stderr).trim()) || err.message}`);
+      }
+    }
+  }));
+
+  app.post('/api/arrows', route((req) => {
+    const { from, to, type } = req.body;
+    if (!ARROW_TYPES.includes(type)) throw new HttpError(400, 'Tipo de seta inválido.');
+    if (from === to) throw new HttpError(400, 'Uma seta precisa ligar dois terminais diferentes.');
+    const a = findTerminal(from), b = findTerminal(to);
+    if (a.session !== b.session) throw new HttpError(400, 'Setas só ligam terminais da mesma sessão.');
+    const arrow = { id: uid(), from, to, type };
+    a.session.arrows.push(arrow);
+    changed();
+    return arrow;
+  }));
+
+  function findArrow(id) {
+    for (const session of state.sessions) {
+      const arrow = session.arrows.find((a) => a.id === id);
+      if (arrow) return { session, arrow };
+    }
+    throw new HttpError(404, 'Seta não encontrada.');
+  }
+
+  app.patch('/api/arrows/:id', route((req) => {
+    if (!ARROW_TYPES.includes(req.body.type)) throw new HttpError(400, 'Tipo de seta inválido.');
+    findArrow(req.params.id).arrow.type = req.body.type;
+    changed();
+  }));
+
+  app.delete('/api/arrows/:id', route((req) => {
+    const { session, arrow } = findArrow(req.params.id);
+    session.arrows = session.arrows.filter((a) => a !== arrow);
+    changed();
+  }));
+
+  // ---------------------------------------------------------------- WebSocket
+  server.on('upgrade', (req, socket, head) => {
+    const u = new URL(req.url, 'http://localhost');
+    if (!['/term', '/events'].includes(u.pathname) || !requestAllowed(req)) {
+      socket.destroy();
+      return;
+    }
+    wss.handleUpgrade(req, socket, head, (ws) => (u.pathname === '/events' ? onEvents(ws) : onTerm(ws, u)));
   });
 
-  ws.on('close', () => session.clients.delete(ws));
-});
+  function onEvents(ws) {
+    eventClients.add(ws);
+    ws.send(JSON.stringify({ t: 'state', state: publicState() }));
+    if (warnings.length) {
+      ws.send(JSON.stringify({ t: 'warn', msgs: warnings }));
+      warnings = [];
+    }
+    ws.on('close', () => eventClients.delete(ws));
+  }
 
-server.listen(PORT, HOST, () => {
-  console.log(`\n  Orquestra rodando em http://localhost:${PORT}\n`);
-});
+  function onTerm(ws, u) {
+    const entry = live.get(u.searchParams.get('id'));
+    if (!entry) {
+      ws.send(JSON.stringify({ t: 'exit', code: null }));
+      return ws.close();
+    }
+    if (entry.buffer) ws.send(JSON.stringify({ t: 'out', d: entry.buffer })); // reexibe o histórico
+    if (entry.exited) ws.send(JSON.stringify({ t: 'exit', code: null }));
+    entry.clients.add(ws);
 
-function shutdown() {
-  for (const s of sessions.values()) { try { s.pty.kill(); } catch {} }
-  process.exit(0);
+    ws.on('message', (raw) => {
+      let m;
+      try { m = JSON.parse(raw); } catch { return; }
+      const cur = live.get(u.searchParams.get('id'));
+      if (!cur || cur.exited) return;
+      if (m.t === 'in' && typeof m.d === 'string') cur.pty.write(m.d);
+      else if (m.t === 'resize' && m.cols > 0 && m.rows > 0) {
+        try { cur.pty.resize(Math.floor(m.cols), Math.floor(m.rows)); } catch {}
+      }
+    });
+    ws.on('close', () => entry.clients.delete(ws));
+  }
+
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(port, '127.0.0.1', () => {
+      url = `http://127.0.0.1:${server.address().port}`;
+      restore();
+      resolve({
+        url,
+        liveCount: () => [...live.values()].filter((l) => !l.exited).length,
+        shutdown() {
+          for (const l of live.values()) { try { l.pty.kill(); } catch {} }
+          saveNow();
+        },
+      });
+    });
+  });
 }
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+
+module.exports = { start };

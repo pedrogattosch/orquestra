@@ -1,0 +1,3 @@
+#!/bin/sh
+# Roda o orquestra-abrir.js com o próprio executável do Orquestra (não precisa de Node instalado).
+ELECTRON_RUN_AS_NODE=1 exec "$ORQUESTRA_NODE" "$(dirname "$0")/orquestra-abrir.js" "$@"

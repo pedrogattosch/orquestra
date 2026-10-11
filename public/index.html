@@ -1,185 +1,608 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Orquestra</title>
+<script>
+  // aplica o tema antes de desenhar a página, para não piscar
+  (() => {
+    let pref = 'system';
+    try { pref = localStorage.getItem('orquestra.theme') || 'system'; } catch {}
+    const dark = pref === 'dark' || (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="/vendor/xterm/css/xterm.css">
 <style>
+  /* ---------- tokens ---------- */
   :root {
-    --bg: #0e0f13;
-    --dot: #23252e;
-    --panel: #16181f;
-    --panel-2: #1d2029;
-    --line: #2a2d38;
-    --text: #e6e7eb;
-    --muted: #8b8f9c;
-    --accent: #7c9cff;
-    --ok: #4ade80;
-    --idle: #f5b13d;
-    --alert: #f2555a;
+    --top: 44px;
+    --sans: 'Geist', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: 'Geist Mono', ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
   }
+  [data-theme="light"] {
+    color-scheme: light;
+    --bg: #F6F6F4; --dot: #D6D6D1; --bar-line: #E7E7E3; --sep: #E1E1DC;
+    --card: #FFFFFF; --line: #E4E4E0; --line-2: #EEEEEA; --hover: #F1F1EE; --seg: #EDEDEA; --seg-on: #FFFFFF;
+    --input: #FFFFFF; --field-alt: #F6F6F4;
+    --text: #191918; --muted: #6B6B66; --term: #2A2A28; --soft: #3D3D3A;
+    --accent: #3B5BDB; --accent-line: #C9D3F5; --accent-ring: rgba(59,91,219,.12);
+    --cmd: #3B5BDB; --cmd-tint: #F3F5FD; --cmd-line: #B9C6F2;
+    --dep: #B7791F; --dep-text: #8A6216; --dep-tint: #FBF6EC; --dep-line: #E6CB98;
+    --ok: #1F9D55; --ok-text: #1A7F46; --idle: #D99A2B; --dead: #A3A39E;
+    --alert: #D93F3A; --alert-text: #B8332F; --alert-line: #EDB4B1; --alert-ring: rgba(217,63,58,.12);
+    --primary-bg: #191918; --primary-fg: #FFFFFF; --kbd: #BDBDB8;
+    --shadow: 0 1px 2px rgba(20,20,18,.04), 0 10px 30px rgba(20,20,18,.06);
+    --shadow-float: 0 1px 2px rgba(20,20,18,.04), 0 12px 32px rgba(20,20,18,.08);
+    --shadow-dlg: 0 1px 2px rgba(20,20,18,.04), 0 24px 60px rgba(20,20,18,.14);
+    --scrim: rgba(246,246,244,.6);
+    --ag-claude-bg: #F5E7DF; --ag-claude-fg: #9A4A2A;
+    --ag-codex-bg: #E9E9E6;  --ag-codex-fg: #2A2A28;
+    --ag-gemini-bg: #E3EAFB; --ag-gemini-fg: #2F4FB8;
+    --ag-anti-bg: #E2F1E8;   --ag-anti-fg: #1E7A47;
+    --ag-none-bg: #F1F1EE;   --ag-none-fg: #6B6B66;
+  }
+  [data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0E0E0F; --dot: #26262A; --bar-line: #1F1F22; --sep: #2A2A2E;
+    --card: #151517; --line: #2A2A2E; --line-2: #222225; --hover: #1E1E21; --seg: #18181A; --seg-on: #2A2A2E;
+    --input: #0E0E0F; --field-alt: #0E0E0F;
+    --text: #ECECEA; --muted: #8D8D93; --term: #D4D4D2; --soft: #D4D4D2;
+    --accent: #8EA2FF; --accent-line: #3A4680; --accent-ring: rgba(142,162,255,.14);
+    --cmd: #8EA2FF; --cmd-tint: #181C2E; --cmd-line: #3A4680;
+    --dep: #E0A43A; --dep-text: #E0A43A; --dep-tint: #241D10; --dep-line: #6B5122;
+    --ok: #4ADE80; --ok-text: #4ADE80; --idle: #F0B03C; --dead: #55555B;
+    --alert: #F2555A; --alert-text: #FF7A75; --alert-line: #6B2B2A; --alert-ring: rgba(242,85,90,.14);
+    --primary-bg: #ECECEA; --primary-fg: #111112; --kbd: #6B6B70;
+    --shadow: 0 16px 40px rgba(0,0,0,.45);
+    --shadow-float: 0 16px 40px rgba(0,0,0,.5);
+    --shadow-dlg: 0 24px 60px rgba(0,0,0,.6);
+    --scrim: rgba(8,8,9,.6);
+    --ag-claude-bg: #3A241B; --ag-claude-fg: #F0A07A;
+    --ag-codex-bg: #26262A;  --ag-codex-fg: #ECECEA;
+    --ag-gemini-bg: #1E2647; --ag-gemini-fg: #A9B8FF;
+    --ag-anti-bg: #183225;   --ag-anti-fg: #6EE7A0;
+    --ag-none-bg: #1C1C1E;   --ag-none-fg: #8D8D93;
+  }
+
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
-    font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+    font: 13px/1.4 var(--sans); overflow: hidden; -webkit-font-smoothing: antialiased; }
+  button, input, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  svg.i { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5;
+    stroke-linecap: round; stroke-linejoin: round; }
+  kbd { font-family: var(--mono); font-size: 10px; color: var(--kbd); }
+
+  /* botões genéricos */
+  .btn { height: 34px; display: inline-flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--card); color: var(--text); white-space: nowrap; }
+  .btn:hover { background: var(--hover); }
+  .btn.primary { border-color: transparent; background: var(--primary-bg); color: var(--primary-fg); font-weight: 500; }
+  .btn.primary:hover { filter: brightness(1.12); }
+  .btn.danger { color: var(--alert-text); border-color: var(--alert-line); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .ghost { height: 28px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: 0;
+    border-radius: 7px; background: transparent; color: var(--muted); }
+  .ghost:hover { background: var(--hover); color: var(--text); }
+  .icon-btn { width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 7px;
+    background: transparent; color: var(--muted); padding: 0; }
+  .icon-btn:hover { background: var(--hover); color: var(--text); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
   /* ---------- barra superior ---------- */
-  #bar { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 1000;
-    display: flex; gap: 6px; align-items: center; padding: 6px; background: var(--panel);
-    border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px #0008; }
-  #bar .brand { font-weight: 650; letter-spacing: .02em; padding: 0 8px 0 6px; }
-  #bar .sep { width: 1px; height: 20px; background: var(--line); margin: 0 2px; }
-  button { font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line);
-    border-radius: 8px; padding: 6px 10px; cursor: pointer; }
-  button:hover { border-color: #3a3e4c; background: #232633; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #0b0d14; font-weight: 600; }
-  button.primary:hover { filter: brightness(1.08); }
-  #zoomLabel { min-width: 48px; text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; }
+  #top { position: fixed; top: 0; left: 0; right: 0; height: var(--top); z-index: 1000; display: flex; align-items: center;
+    gap: 16px; padding: 0 12px 0 16px; background: var(--bg); border-bottom: 1px solid var(--bar-line); }
+  .brand { display: flex; align-items: center; gap: 8px; flex: none; font-weight: 600; letter-spacing: -0.01em; user-select: none; }
+  .logo { width: 20px; height: 20px; border-radius: 6px; background: var(--text); display: flex; align-items: flex-end;
+    justify-content: center; gap: 2px; padding-bottom: 5px; }
+  .logo span { width: 2px; border-radius: 1px; background: var(--bg); }
+  .vsep { width: 1px; height: 16px; background: var(--sep); flex: none; }
+  #tabs { display: flex; align-items: center; gap: 2px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .tab { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 4px 0 10px; border: 1px solid transparent;
+    border-radius: 7px; cursor: pointer; white-space: nowrap; color: var(--muted); user-select: none; }
+  .tab:hover { background: var(--hover); }
+  .tab.active { background: var(--card); border-color: var(--line); color: var(--text); box-shadow: 0 1px 1px rgba(0,0,0,.03); }
+  .tab .adot { width: 6px; height: 6px; border-radius: 50%; background: var(--alert); display: none; }
+  .tab.alert .adot { display: inline-block; animation: pulse 1.2s infinite; }
+  .tab.alert { color: var(--text); }
+  .tname { outline: none; }
+  .tname[contenteditable="true"] { background: var(--input); border-radius: 4px; padding: 0 4px; cursor: text; }
+  .tab .tclose { width: 20px; height: 20px; display: grid; place-items: center; border: 0; border-radius: 5px; padding: 0;
+    background: transparent; color: var(--muted); opacity: 0; }
+  .tab:hover .tclose, .tab.active .tclose { opacity: 1; }
+  .tab .tclose:hover { background: var(--hover); color: var(--text); }
+  .tab .tclose svg.i { width: 11px; height: 11px; }
+  .seg { display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: var(--seg); flex: none; }
+  .seg button { width: 26px; height: 24px; display: grid; place-items: center; border: 0; border-radius: 6px; padding: 0;
+    background: transparent; color: var(--muted); }
+  .seg button:hover { color: var(--text); }
+  .seg button[aria-pressed="true"] { background: var(--seg-on); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.1); }
 
   /* ---------- tela infinita ---------- */
-  #viewport { position: fixed; inset: 0; cursor: grab;
-    background-image: radial-gradient(var(--dot) 1.2px, transparent 1.2px); }
+  #viewport { position: fixed; top: var(--top); left: 0; right: 0; bottom: 0; cursor: grab;
+    background-image: radial-gradient(var(--dot) 1px, transparent 1.2px); }
   #viewport.panning { cursor: grabbing; }
-  #world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  .world { position: absolute; left: 0; top: 0; transform-origin: 0 0; visibility: hidden; }
+  .world.active { visibility: visible; }
+
+  /* ---------- conexões ---------- */
+  svg.arrows { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; z-index: 0; pointer-events: none; }
+  .arrow .vis { stroke-width: 1.6; fill: none; }
+  .arrow.comando .vis { stroke: var(--cmd); }
+  .arrow.dependencia .vis { stroke: var(--dep); stroke-dasharray: 6 5; }
+  .arrow .hit { stroke: transparent; stroke-width: 16; pointer-events: visibleStroke; cursor: pointer; }
+  .arrow:hover .vis { stroke-width: 2.6; }
+  .m-comando { fill: var(--cmd); }
+  .m-dependencia { fill: var(--dep); }
+  #arrowMenu { position: fixed; z-index: 1500; display: none; flex-direction: column; gap: 2px; padding: 4px; min-width: 180px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-float); }
+  #arrowMenu button { display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border: 0; border-radius: 6px;
+    background: transparent; color: var(--text); text-align: left; }
+  #arrowMenu button:hover { background: var(--hover); }
+  #arrowMenu button.danger { color: var(--alert-text); }
+  #arrowMenu hr { border: 0; border-top: 1px solid var(--line-2); margin: 2px 0; }
 
   /* ---------- nó de terminal ---------- */
-  .node { position: absolute; display: flex; flex-direction: column; background: #0b0c10;
-    border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px #0009; overflow: hidden; }
-  .node.active { border-color: var(--c); box-shadow: 0 0 0 1px var(--c), 0 10px 30px #0009; }
-  .node.alert { border-color: var(--alert); box-shadow: 0 0 0 2px var(--alert), 0 10px 30px #0009; }
-  .head { display: flex; align-items: center; gap: 8px; padding: 7px 8px 7px 10px; background: var(--panel);
-    border-bottom: 1px solid var(--line); cursor: move; user-select: none; }
-  .head .bar-c { width: 3px; align-self: stretch; border-radius: 2px; background: var(--c); }
-  .status { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
-  .status.working { background: var(--ok); animation: pulse 1.2s infinite; }
+  .node { position: absolute; z-index: 1; display: flex; flex-direction: column; background: var(--card);
+    border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+  .node.active { border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-ring), var(--shadow); }
+  .node.alert { border-color: var(--alert-line); box-shadow: 0 0 0 3px var(--alert-ring), var(--shadow); }
+  .head { height: 44px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 8px 0 14px;
+    border-bottom: 1px solid var(--line-2); cursor: move; user-select: none; }
+  .status { width: 7px; height: 7px; border-radius: 50%; background: var(--dead); flex: none; }
+  .status.working { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 18%, transparent); animation: pulse 1.6s infinite; }
   .status.idle { background: var(--idle); }
-  .status.alert { background: var(--alert); }
-  .status.dead { background: #555; }
-  @keyframes pulse { 50% { opacity: .35; } }
+  .status.alert { background: var(--alert); box-shadow: 0 0 0 3px var(--alert-ring); }
+  .status.dead { background: var(--dead); }
+  @keyframes pulse { 50% { opacity: .45; } }
   .title { display: flex; flex-direction: column; min-width: 0; flex: 1; }
   .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; outline: none; }
-  .name[contenteditable="true"] { background: var(--panel-2); border-radius: 4px; padding: 0 4px; cursor: text; }
-  .sub { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .name[contenteditable="true"] { background: var(--hover); border-radius: 4px; padding: 0 4px; cursor: text; }
+  .sub { font-family: var(--mono); color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .state { color: var(--muted); font-size: 11px; white-space: nowrap; }
-  .head button { padding: 2px 7px; font-size: 12px; background: transparent; border-color: transparent; color: var(--muted); }
-  .head button:hover { color: var(--text); background: var(--panel-2); border-color: var(--line); }
-  .body { flex: 1; min-height: 0; padding: 6px 4px 4px 8px; cursor: auto; }
+  .state.working { color: var(--ok-text); }
+  .state.alert { color: var(--alert-text); font-weight: 500; }
+  .head .acts { display: flex; gap: 2px; }
+  .body { flex: 1; min-height: 0; padding: 10px 6px 6px 14px; cursor: auto; }
   .body .xterm { height: 100%; }
-  .grip { position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize;
-    background: linear-gradient(135deg, transparent 50%, var(--line) 50%, var(--line) 60%, transparent 60%, transparent 70%, var(--line) 70%, var(--line) 80%, transparent 80%); }
+  .xterm-viewport::-webkit-scrollbar { width: 8px; }
+  .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
+  .xterm-viewport::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+  .grip { position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize; }
+  .grip::after { content: ""; position: absolute; right: 4px; bottom: 4px; width: 7px; height: 7px;
+    border-right: 1.5px solid var(--line); border-bottom: 1.5px solid var(--line); border-bottom-right-radius: 3px; }
 
-  /* ---------- modal ---------- */
-  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 14px;
-    padding: 0; width: min(460px, calc(100vw - 32px)); box-shadow: 0 20px 60px #000c; }
-  dialog::backdrop { background: #0009; }
-  dialog form { padding: 18px; display: grid; gap: 12px; }
-  dialog h2 { margin: 0 0 4px; font-size: 16px; }
-  label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
-  input { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
-    border-radius: 8px; padding: 8px 10px; }
-  input:focus { outline: none; border-color: var(--accent); }
-  .hint { color: var(--muted); font-size: 11px; margin-top: -6px; }
-  .actions { display: flex; flex-direction: row-reverse; justify-content: flex-start; gap: 8px; margin-top: 4px; }
+  /* ---------- controles flutuantes ---------- */
+  .float { position: fixed; z-index: 900; display: flex; align-items: center; gap: 4px; padding: 5px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-float); }
+  #dock { left: 50%; bottom: 20px; transform: translateX(-50%); }
+  #zoom { right: 16px; bottom: 20px; gap: 2px; }
+  .float .sep { width: 1px; height: 18px; background: var(--line-2); margin: 0 4px; }
+  .dock-btn { height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 12px 0 10px; border: 0; border-radius: 8px;
+    background: transparent; color: var(--soft); white-space: nowrap; }
+  .dock-btn:hover { background: var(--hover); }
+  .dock-btn.primary { background: var(--primary-bg); color: var(--primary-fg); font-weight: 500; }
+  .dock-btn.primary:hover { filter: brightness(1.12); background: var(--primary-bg); }
+  .dock-btn kbd { margin-left: 2px; }
+  .zbtn { width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 8px; padding: 0;
+    background: transparent; color: var(--soft); }
+  .zbtn:hover { background: var(--hover); }
+  #zoomLabel { min-width: 44px; text-align: center; font-family: var(--mono); font-size: 12px; color: var(--muted);
+    font-variant-numeric: tabular-nums; }
+  #summary { position: fixed; left: 16px; bottom: 24px; z-index: 900; height: 36px; display: flex; align-items: center;
+    gap: 14px; padding: 0 14px; font-size: 12px; color: var(--muted); pointer-events: none; }
+  #summary span { display: flex; align-items: center; gap: 6px; }
+  #summary span[hidden] { display: none; }
+  #summary i { width: 6px; height: 6px; border-radius: 50%; }
+  #summary .s-alert { color: var(--alert-text); }
 
-  #empty { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none; color: var(--muted); text-align: center; }
-  #empty b { color: var(--text); }
-  #toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--alert); color: #fff;
-    padding: 8px 14px; border-radius: 8px; display: none; z-index: 2000; max-width: 80vw; }
+  /* ---------- diálogos ---------- */
+  dialog { background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 14px;
+    padding: 0; width: min(480px, calc(100vw - 32px)); box-shadow: var(--shadow-dlg); }
+  dialog.wide { width: min(500px, calc(100vw - 32px)); }
+  dialog::backdrop { background: var(--scrim); }
+  .dlg-head { padding: 20px 22px 0; display: flex; flex-direction: column; gap: 4px; }
+  .dlg-head .row { display: flex; align-items: baseline; justify-content: space-between; }
+  .dlg-head kbd { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; }
+  dialog h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+  dialog p { margin: 0; color: var(--muted); }
+  .dlg-body { padding: 18px 22px 20px; display: flex; flex-direction: column; gap: 16px; }
+  .dlg-foot { padding: 14px 22px; border-top: 1px solid var(--line-2); display: flex; align-items: center; justify-content: flex-end;
+    gap: 8px; flex-wrap: wrap; }
+  .dlg-foot .note { flex: 1; font-size: 11.5px; color: var(--muted); min-width: 160px; }
+  label.f, fieldset.f { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); margin: 0; padding: 0; border: 0; }
+  fieldset.f legend { padding: 0; margin-bottom: 6px; }
+  label[hidden] { display: none; }
+  input, select { font-size: 13px; color: var(--text); background: var(--input); border: 1px solid var(--line);
+    border-radius: 8px; height: 36px; padding: 0 12px; width: 100%; }
+  select { padding: 0 10px; }
+  input.mono { font-family: var(--mono); font-size: 12.5px; }
+  input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+  input::placeholder { color: var(--muted); opacity: .8; }
+  select:disabled { opacity: .6; }
+  .row { display: flex; gap: 6px; }
+  .row input { flex: 1; min-width: 0; }
+  .hint { color: var(--muted); font-size: 11.5px; }
+  .hint:empty { display: none; }
+  .err { color: var(--alert-text); font-size: 12px; white-space: pre-line; }
+  .err:empty { display: none; }
+
+  /* sanfona de agentes */
+  .acc { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--input); }
+  .acc.open { border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-ring); }
+  .acc-trigger { width: 100%; height: 50px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border: 0;
+    background: transparent; color: var(--text); text-align: left; }
+  .acc-trigger .chev { color: var(--muted); transition: transform .15s; }
+  .acc.open .acc-trigger .chev { transform: rotate(180deg); }
+  .acc-trigger .t { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .acc-trigger .t b { font-weight: 500; }
+  .acc-trigger .t span, .ag-opt .cmd { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .acc-list { display: none; border-top: 1px solid var(--line-2); padding: 4px; flex-direction: column; gap: 2px; }
+  .acc.open .acc-list { display: flex; }
+  .ag-opt { width: 100%; height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 8px; border: 0; border-radius: 7px;
+    background: transparent; color: var(--text); text-align: left; }
+  .ag-opt:hover { background: var(--hover); }
+  .ag-opt[aria-pressed="true"] { background: var(--hover); }
+  .ag-opt .n { flex: 1; min-width: 0; }
+  .ag-opt .check { width: 16px; color: var(--accent); visibility: hidden; }
+  .ag-opt[aria-pressed="true"] .check { visibility: visible; }
+  .acc-note { padding: 6px 8px 4px; font-size: 11.5px; color: var(--muted); }
+  .mono-ico { width: 26px; height: 26px; flex: none; display: grid; place-items: center; border-radius: 7px;
+    font-family: var(--mono); font-size: 11.5px; font-weight: 500; }
+  .acc-trigger .mono-ico { width: 28px; height: 28px; border-radius: 8px; font-size: 12px; }
+
+  /* nova conexão */
+  .types { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .type-card { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 14px; border: 1px solid var(--line);
+    border-radius: 10px; background: var(--input); color: var(--text); text-align: left; }
+  .type-card b { font-weight: 500; }
+  .type-card span { font-size: 12px; color: var(--muted); line-height: 1.45; }
+  .type-card[data-type="comando"] svg { stroke: var(--cmd); }
+  .type-card[data-type="dependencia"] svg { stroke: var(--dep); }
+  .type-card[data-type="comando"][aria-pressed="true"] { background: var(--cmd-tint); border-color: var(--cmd-line); box-shadow: 0 0 0 3px var(--accent-ring); }
+  .type-card[data-type="dependencia"][aria-pressed="true"] { background: var(--dep-tint); border-color: var(--dep-line);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--dep) 14%, transparent); }
+  .pair { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; align-items: end; }
+  .pair .icon-btn { width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 8px; background: var(--input); color: var(--soft); }
+  .preview { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 22px 16px 16px; border: 1px solid var(--line-2);
+    border-radius: 10px; background: var(--field-alt); background-image: radial-gradient(var(--dot) 1px, transparent 1.2px); background-size: 14px 14px; }
+  .preview .chain { display: flex; align-items: center; max-width: 100%; }
+  .chip { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 8px; font-weight: 500; max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chip i { width: 6px; height: 6px; border-radius: 50%; background: var(--dead); flex: none; }
+  .chip i.working { background: var(--ok); } .chip i.idle { background: var(--idle); } .chip i.alert { background: var(--alert); }
+  #prevArrow { flex: none; }
+  #prevArrow path { stroke: var(--cmd); }
+  #prevArrow.dependencia path { stroke: var(--dep); }
+  #prevArrow.dependencia .line { stroke-dasharray: 5 4; }
+  #prevText { font-size: 12px; color: var(--muted); }
+
+  #empty { position: fixed; top: var(--top); left: 0; right: 0; bottom: 0; display: grid; place-items: center; pointer-events: none;
+    color: var(--muted); text-align: center; line-height: 1.6; }
+  #empty b { color: var(--text); font-weight: 600; }
+  #empty kbd { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; }
+  #toast { position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%); background: var(--alert); color: #fff;
+    padding: 8px 14px; border-radius: 8px; display: none; z-index: 2000; max-width: 80vw; white-space: pre-line; box-shadow: var(--shadow-float); }
 </style>
 </head>
 <body>
 
-<div id="viewport"><div id="world"></div></div>
+<div id="viewport"></div>
 
-<div id="empty"><div><b>Nenhum agente aberto</b><br>Clique em “+ Agente” ou aperte <b>N</b></div></div>
+<!-- pontas das setas: ficam fora das sessões para valerem em todas -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="m-comando" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path class="m-comando" d="M0 0 L10 5 L0 10 z"></path>
+    </marker>
+    <marker id="m-dependencia" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path class="m-dependencia" d="M0 0 L10 5 L0 10 z"></path>
+    </marker>
+  </defs>
+</svg>
 
-<div id="bar">
-  <span class="brand">Orquestra</span>
-  <button class="primary" id="btnNew" title="Novo agente (N)">+ Agente</button>
-  <span class="sep"></span>
-  <button id="btnGrid" title="Organizar em grade (G)">Grade</button>
-  <button id="btnFit" title="Ver todos (F)">Ver todos</button>
-  <span class="sep"></span>
-  <button id="btnZoomOut" title="Diminuir zoom">−</button>
-  <span id="zoomLabel">100%</span>
-  <button id="btnZoomIn" title="Aumentar zoom">+</button>
+<div id="empty"><div><b>Sessão vazia</b><br>Clique em “Terminal” ou aperte <kbd>N</kbd></div></div>
+
+<header id="top">
+  <div class="brand">
+    <span class="logo" aria-hidden="true"><span style="height:5px"></span><span style="height:9px"></span><span style="height:7px"></span></span>
+    Orquestra
+  </div>
+  <span class="vsep" aria-hidden="true"></span>
+  <nav id="tabs" aria-label="Sessões">
+    <button id="btnAddSession" class="icon-btn" title="Nova sessão" aria-label="Nova sessão">
+      <svg class="i" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg>
+    </button>
+  </nav>
+  <div class="seg" role="group" aria-label="Tema" id="themeSeg">
+    <button data-theme-pref="system" title="Tema do sistema" aria-label="Tema do sistema">
+      <svg class="i" viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="9" rx="1.5"/><path d="M5.5 14.5h5M8 11.5v3"/></svg>
+    </button>
+    <button data-theme-pref="light" title="Claro" aria-label="Tema claro">
+      <svg class="i" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1"/></svg>
+    </button>
+    <button data-theme-pref="dark" title="Escuro" aria-label="Tema escuro">
+      <svg class="i" viewBox="0 0 16 16"><path d="M13.5 9.5A5.5 5.5 0 0 1 6.5 2.5a5.5 5.5 0 1 0 7 7z"/></svg>
+    </button>
+  </div>
+  <span class="vsep" aria-hidden="true"></span>
+  <button id="btnQuit" class="ghost" title="Sair do Orquestra (encerra todos os terminais)">
+    <svg class="i" viewBox="0 0 16 16"><path d="M6.5 2.5H3.5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h3M10.5 5l3 3-3 3M13.5 8H6"/></svg>
+    Sair
+  </button>
+</header>
+
+<div id="summary" aria-live="polite">
+  <span id="sumWorking"><i style="background:var(--ok)"></i><b style="font-weight:400"></b></span>
+  <span id="sumIdle"><i style="background:var(--idle)"></i><b style="font-weight:400"></b></span>
+  <span id="sumAlert" class="s-alert"><i style="background:var(--alert)"></i><b style="font-weight:400"></b></span>
 </div>
 
-<dialog id="dlg">
-  <form method="dialog" id="form">
-    <h2>Novo agente</h2>
-    <label>Nome
-      <input name="name" placeholder="ex.: Claude – backend" autocomplete="off">
-    </label>
-    <label>Pasta do projeto
-      <input name="cwd" required autocomplete="off">
-    </label>
-    <label>Worktree (nome da branch, opcional)
-      <input name="branch" placeholder="ex.: feature-login" autocomplete="off">
-    </label>
-    <div class="hint">Se preenchido, cria um worktree ao lado do projeto (projeto-feature-login) e abre o agente nele.</div>
-    <label>Comando para iniciar
-      <input name="cmd" list="cmds" placeholder="deixe vazio para só um terminal" autocomplete="off">
-      <datalist id="cmds"></datalist>
-    </label>
-    <div class="actions">
-      <button class="primary" value="ok">Abrir</button>
-      <button value="cancel" formnovalidate>Cancelar</button>
+<div id="dock" class="float" role="toolbar" aria-label="Ferramentas">
+  <button id="btnNew" class="dock-btn primary" title="Novo terminal (N)">
+    <svg class="i" viewBox="0 0 16 16" style="stroke-width:1.6"><path d="M8 3v10M3 8h10"/></svg>
+    Terminal <kbd>N</kbd>
+  </button>
+  <span class="sep" aria-hidden="true"></span>
+  <button id="btnConnect" class="dock-btn" title="Nova conexão entre terminais (C)">
+    <svg class="i" viewBox="0 0 16 16" style="width:16px;height:16px"><rect x="1.5" y="9.5" width="5" height="5" rx="1.2"/><rect x="9.5" y="1.5" width="5" height="5" rx="1.2"/><path d="M6.5 12c3 0 3-8 3-8" style="stroke:var(--cmd)"/></svg>
+    Nova conexão <kbd>C</kbd>
+  </button>
+</div>
+
+<div id="zoom" class="float">
+  <button id="btnFit" class="zbtn" title="Ver todos (F)" aria-label="Ver todos">
+    <svg class="i" viewBox="0 0 16 16" style="width:15px;height:15px"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/></svg>
+  </button>
+  <span class="sep" aria-hidden="true" style="margin:0 2px"></span>
+  <button id="btnZoomOut" class="zbtn" title="Diminuir zoom" aria-label="Diminuir zoom">
+    <svg class="i" viewBox="0 0 16 16" style="stroke-width:1.6"><path d="M3 8h10"/></svg>
+  </button>
+  <span id="zoomLabel">100%</span>
+  <button id="btnZoomIn" class="zbtn" title="Aumentar zoom" aria-label="Aumentar zoom">
+    <svg class="i" viewBox="0 0 16 16" style="stroke-width:1.6"><path d="M8 3v10M3 8h10"/></svg>
+  </button>
+</div>
+
+<div id="arrowMenu" role="menu">
+  <button data-type="comando" role="menuitem">
+    <svg class="i" viewBox="0 0 16 16" style="width:16px;height:16px;stroke:var(--cmd)"><path d="M2 8h11M9 4l4 4-4 4"/></svg>Comando
+  </button>
+  <button data-type="dependencia" role="menuitem">
+    <svg class="i" viewBox="0 0 16 16" style="width:16px;height:16px;stroke:var(--dep)"><path d="M2 8h11" stroke-dasharray="3 2.5"/><path d="M9 4l4 4-4 4"/></svg>Dependência
+  </button>
+  <hr>
+  <button data-remove class="danger" role="menuitem">
+    <svg class="i" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></svg>Remover conexão
+  </button>
+</div>
+
+<!-- novo terminal -->
+<dialog id="dlgNew" aria-labelledby="newTitle">
+  <form id="form" autocomplete="off">
+    <div class="dlg-head"><div class="row"><h2 id="newTitle">Novo terminal</h2><kbd>N</kbd></div></div>
+    <div class="dlg-body">
+      <label class="f">Nome
+        <input name="name" placeholder="opcional — o Orquestra cria um">
+      </label>
+      <label class="f">Pasta do projeto
+        <div class="row">
+          <input name="dir" class="mono" required placeholder="digite o caminho ou clique em Procurar">
+          <button type="button" class="btn" id="btnBrowse">Procurar…</button>
+        </div>
+      </label>
+      <label class="f">Onde abrir
+        <select name="where" disabled></select>
+      </label>
+      <label class="f" id="branchRow" hidden>Branch
+        <input name="branch" class="mono" list="branches" placeholder="escolha uma existente ou digite um nome novo">
+        <datalist id="branches"></datalist>
+      </label>
+      <div class="hint" id="gitHint"></div>
+      <fieldset class="f">
+        <legend>Agente</legend>
+        <input type="hidden" name="agent" value="">
+        <div class="acc" id="agentAcc">
+          <button type="button" class="acc-trigger" id="agentTrigger" aria-expanded="false" aria-controls="agentList">
+            <span class="mono-ico" id="agentIco"></span>
+            <span class="t"><b id="agentName"></b><span id="agentCmd"></span></span>
+            <svg class="i chev" viewBox="0 0 16 16" style="stroke-width:1.6"><path d="M4 6l4 4 4-4"/></svg>
+          </button>
+          <div class="acc-list" id="agentList" role="group" aria-label="Escolha o agente"></div>
+        </div>
+      </fieldset>
+      <div class="err" id="formErr"></div>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" id="btnCancelNew">Cancelar</button>
+      <button type="submit" class="btn primary" id="btnOpen">Abrir</button>
     </div>
   </form>
 </dialog>
 
-<div id="toast"></div>
+<!-- nova conexão -->
+<dialog id="dlgConn" class="wide" aria-labelledby="connTitle">
+  <form id="connForm" autocomplete="off">
+    <div class="dlg-head">
+      <div class="row"><h2 id="connTitle">Nova conexão</h2><kbd>C</kbd></div>
+      <p>Ligue dois terminais desta sessão.</p>
+    </div>
+    <div class="dlg-body">
+      <fieldset class="f">
+        <legend>Tipo</legend>
+        <div class="types">
+          <button type="button" class="type-card" data-type="comando" aria-pressed="true">
+            <svg viewBox="0 0 48 12" width="48" height="12" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6h44"/><path d="M41 2l4 4-4 4"/></svg>
+            <b>Comando</b><span>Um terminal dá as ordens, o outro executa.</span>
+          </button>
+          <button type="button" class="type-card" data-type="dependencia" aria-pressed="false">
+            <svg viewBox="0 0 48 12" width="48" height="12" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6h44" stroke-dasharray="4 3"/><path d="M41 2l4 4-4 4"/></svg>
+            <b>Dependência</b><span>Um terminal espera o outro terminar.</span>
+          </button>
+        </div>
+      </fieldset>
+      <div class="pair">
+        <label class="f"><span id="fromLabel">Quem comanda</span><select id="connFrom"></select></label>
+        <button type="button" class="icon-btn" id="btnSwap" title="Inverter direção" aria-label="Inverter direção">
+          <svg class="i" viewBox="0 0 16 16"><path d="M2 5h11M10 2l3 3-3 3M14 11H3M6 8l-3 3 3 3"/></svg>
+        </button>
+        <label class="f"><span id="toLabel">Quem é comandado</span><select id="connTo"></select></label>
+      </div>
+      <div class="preview" aria-hidden="true">
+        <div class="chain">
+          <span class="chip"><i id="prevFromDot"></i><span id="prevFrom"></span></span>
+          <svg id="prevArrow" width="88" height="16" viewBox="0 0 88 16" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path class="line" d="M4 8h78"/><path d="M78 4l4 4-4 4"/></svg>
+          <span class="chip"><i id="prevToDot"></i><span id="prevTo"></span></span>
+        </div>
+      </div>
+      <div id="prevText" style="text-align:center;margin-top:-6px"></div>
+      <div class="err" id="connErr"></div>
+    </div>
+    <div class="dlg-foot">
+      <span class="note">Clique numa conexão na tela para mudar o tipo ou remover.</span>
+      <button type="button" class="btn" id="btnCancelConn">Cancelar</button>
+      <button type="submit" class="btn primary" id="btnCreateConn">Criar conexão</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- finalizar -->
+<dialog id="dlgFinish" aria-labelledby="finishTitle">
+  <div class="dlg-head"><h2 id="finishTitle">Finalizar terminal</h2></div>
+  <div class="dlg-body" style="gap:12px">
+    <p id="finishText"></p>
+    <div class="err" id="finishErr"></div>
+  </div>
+  <div class="dlg-foot">
+    <button class="btn" id="btnCancelFinish">Cancelar</button>
+    <button class="btn danger" id="btnDeleteWt">Fechar e excluir worktree e branch</button>
+    <button class="btn primary" id="btnOnlyClose">Só fechar o terminal</button>
+  </div>
+</dialog>
+
+<div id="toast" role="alert"></div>
 
 <script src="/vendor/xterm/lib/xterm.js"></script>
 <script src="/vendor/addon-fit/lib/addon-fit.js"></script>
 <script>
 (() => {
   // ---------------------------------------------------------------- estado
-  const STORE = 'orquestra.layout.v1';
-  const COLORS = ['#7c9cff', '#4ade80', '#f5b13d', '#f472b6', '#38bdf8', '#a78bfa', '#fb923c', '#2dd4bf'];
   const IDLE_MS = 2500;        // sem saída por esse tempo => "parado"
-  const viewport = document.getElementById('viewport');
-  const world = document.getElementById('world');
-  const view = { x: 0, y: 0, s: 1 };
-  const nodes = new Map();     // id -> objeto do nó
-  let defaults = { home: '~' };
+  const SVG = 'http://www.w3.org/2000/svg';
+  const $ = (s) => document.querySelector(s);
+  const viewport = $('#viewport');
+  const tabsEl = $('#tabs');
+  const app = window.orquestra; // funções do aplicativo desktop (preload)
+  const sessions = new Map();  // id -> { id, name, view, arrows, world, svg, tab }
+  const nodes = new Map();     // id do terminal -> objeto do nó
+  let active = null;           // id da sessão visível
+  let defaults = { home: '' };
   let topZ = 1;
+  let pendingFocus = null;
 
-  const load = () => { try { return JSON.parse(localStorage.getItem(STORE)) || null; } catch { return null; } };
-  const persist = () => {
-    try {
-      localStorage.setItem(STORE, JSON.stringify({
-        view,
-        nodes: [...nodes.values()].map(n => n.cfg),
-        recent: recentCmds,
-      }));
-    } catch {}
+  const ICON = (d, extra = '') => `<svg class="i" viewBox="0 0 16 16"${extra}>${d}</svg>`;
+  const ICONS = {
+    vscode: ICON('<path d="M6 4L2 8l4 4M10 4l4 4-4 4"/>'),
+    focus: ICON('<path d="M10 2h4v4M6 14H2v-4M14 2L9.5 6.5M2 14l4.5-4.5"/>'),
+    restart: ICON('<path d="M13.5 8A5.5 5.5 0 1 1 11.9 4.1M13.5 2v3h-3"/>'),
+    close: ICON('<path d="M4 4l8 8M12 4l-8 8"/>'),
+    check: ICON('<path d="M3 8.5l3 3 7-7"/>', ' style="stroke-width:1.8"'),
   };
-  let recentCmds = ['claude'];
+
+  async function api(method, url, body) {
+    const res = await fetch(url, {
+      method,
+      headers: body ? { 'Content-Type': 'application/json' } : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw Object.assign(new Error(data.error || `Erro ${res.status}`), data);
+    return data;
+  }
+
+  const cur = () => sessions.get(active);
+  const sessionNodes = (s) => [...nodes.values()].filter((n) => n.session === s);
+
+  // ---------------------------------------------------------------- tema
+  const THEME_KEY = 'orquestra.theme';
+  const darkQuery = matchMedia('(prefers-color-scheme: dark)');
+  let themePref = 'system';
+  try { themePref = localStorage.getItem(THEME_KEY) || 'system'; } catch {}
+
+  const XTERM_THEMES = {
+    light: {
+      background: '#FFFFFF', foreground: '#2A2A28', cursor: '#3B5BDB', cursorAccent: '#FFFFFF', selectionBackground: '#C9D3F5',
+      black: '#191918', red: '#B8332F', green: '#1A7F46', yellow: '#8A6216', blue: '#3B5BDB', magenta: '#8B3FBF', cyan: '#0E7490', white: '#6B6B66',
+      brightBlack: '#8A8A85', brightRed: '#D93F3A', brightGreen: '#1F9D55', brightYellow: '#B7791F', brightBlue: '#4F6BE0',
+      brightMagenta: '#A855F7', brightCyan: '#0891B2', brightWhite: '#3D3D3A',
+    },
+    dark: {
+      background: '#151517', foreground: '#D4D4D2', cursor: '#8EA2FF', cursorAccent: '#151517', selectionBackground: '#3A4680',
+      black: '#26262A', red: '#FF7A75', green: '#4ADE80', yellow: '#F0B03C', blue: '#8EA2FF', magenta: '#D19BFF', cyan: '#5ED3E8', white: '#D4D4D2',
+      brightBlack: '#6B6B70', brightRed: '#FF9C98', brightGreen: '#7EEBA6', brightYellow: '#F7C76A', brightBlue: '#B3C1FF',
+      brightMagenta: '#E2BDFF', brightCyan: '#8FE3F2', brightWhite: '#FFFFFF',
+    },
+  };
+  const resolvedTheme = () => (themePref === 'dark' || (themePref === 'system' && darkQuery.matches) ? 'dark' : 'light');
+
+  function applyTheme() {
+    const t = resolvedTheme();
+    document.documentElement.dataset.theme = t;
+    for (const b of document.querySelectorAll('[data-theme-pref]')) b.setAttribute('aria-pressed', String(b.dataset.themePref === themePref));
+    for (const n of nodes.values()) n.term.options.theme = XTERM_THEMES[t];
+  }
+  function setThemePref(p) {
+    themePref = p;
+    try { localStorage.setItem(THEME_KEY, p); } catch {}
+    applyTheme();
+  }
+  $('#themeSeg').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-theme-pref]');
+    if (b) setThemePref(b.dataset.themePref);
+  });
+  darkQuery.addEventListener('change', () => { if (themePref === 'system') applyTheme(); });
+  applyTheme();
 
   // ---------------------------------------------------------------- câmera
   function applyView() {
-    world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.s})`;
+    const s = cur();
+    if (!s) return;
+    const view = s.view;
+    s.world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.s})`;
     const g = 22 * view.s;
     viewport.style.backgroundSize = `${g}px ${g}px`;
     viewport.style.backgroundPosition = `${view.x}px ${view.y}px`;
-    document.getElementById('zoomLabel').textContent = Math.round(view.s * 100) + '%';
+    $('#zoomLabel').textContent = Math.round(view.s * 100) + '%';
+  }
+
+  let viewTimer = null;
+  function saveView() {
+    const s = cur();
+    clearTimeout(viewTimer);
+    viewTimer = setTimeout(() => api('PATCH', `/api/sessions/${s.id}`, { view: s.view }).catch(() => {}), 500);
   }
 
   function zoomAt(factor, cx, cy) {
+    const view = cur().view;
     const s = Math.min(2, Math.max(0.2, view.s * factor));
     const k = s / view.s;
     view.x = cx - (cx - view.x) * k;
     view.y = cy - (cy - view.y) * k;
     view.s = s;
-    applyView(); persist();
+    applyView(); saveView();
   }
+
+  const onBackground = (t) => t === viewport || t.classList.contains('world');
 
   // arrastar o fundo = mover a tela
   viewport.addEventListener('pointerdown', (e) => {
-    if (e.target !== viewport && e.target !== world) return;
-    if (e.button !== 0 && e.button !== 1) return;
+    if (!onBackground(e.target) || (e.button !== 0 && e.button !== 1)) return;
+    const view = cur().view;
     const sx = e.clientX, sy = e.clientY, ox = view.x, oy = view.y;
     viewport.classList.add('panning');
     viewport.setPointerCapture(e.pointerId);
@@ -188,7 +611,7 @@
       viewport.classList.remove('panning');
       viewport.removeEventListener('pointermove', move);
       viewport.removeEventListener('pointerup', up);
-      persist();
+      saveView();
     };
     viewport.addEventListener('pointermove', move);
     viewport.addEventListener('pointerup', up);
@@ -196,52 +619,142 @@
 
   // roda do mouse no fundo = zoom; dentro do terminal = rolar o terminal (Ctrl+roda dá zoom em qualquer lugar)
   window.addEventListener('wheel', (e) => {
-    const onBackground = e.target === viewport || e.target === world;
-    if (!onBackground && !e.ctrlKey) return;
+    if (!cur() || (!onBackground(e.target) && !e.ctrlKey)) return;
     e.preventDefault();
-    zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY);
+    const r = viewport.getBoundingClientRect();
+    zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top);
   }, { passive: false });
 
   function fitAll() {
-    if (!nodes.size) { view.x = 0; view.y = 0; view.s = 1; applyView(); return; }
+    const s = cur();
+    const list = sessionNodes(s);
+    const view = s.view;
+    if (!list.length) { Object.assign(view, { x: 0, y: 0, s: 1 }); applyView(); saveView(); return; }
     let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
-    for (const n of nodes.values()) {
-      const c = n.cfg;
+    for (const { cfg: c } of list) {
       x1 = Math.min(x1, c.x); y1 = Math.min(y1, c.y);
       x2 = Math.max(x2, c.x + c.w); y2 = Math.max(y2, c.y + c.h);
     }
-    const pad = 80, W = innerWidth, H = innerHeight - 50;
-    const s = Math.min(1, Math.max(0.2, Math.min((W - pad) / (x2 - x1), (H - pad) / (y2 - y1))));
-    view.s = s;
-    view.x = (W - (x2 - x1) * s) / 2 - x1 * s;
-    view.y = 50 + (H - (y2 - y1) * s) / 2 - y1 * s;
-    applyView(); persist();
+    // deixa espaço para os controles flutuantes de baixo
+    const pad = 80, W = viewport.clientWidth, H = viewport.clientHeight - 70;
+    view.s = Math.min(1, Math.max(0.2, Math.min((W - pad) / (x2 - x1), (H - pad) / (y2 - y1))));
+    view.x = (W - (x2 - x1) * view.s) / 2 - x1 * view.s;
+    view.y = (H - (y2 - y1) * view.s) / 2 - y1 * view.s;
+    applyView(); saveView();
   }
 
   function focusNode(n) {
+    if (n.session.id !== active) switchTo(n.session.id);
+    const view = n.session.view;
     view.s = 1;
-    view.x = innerWidth / 2 - (n.cfg.x + n.cfg.w / 2);
-    view.y = (innerHeight + 50) / 2 - (n.cfg.y + n.cfg.h / 2);
-    applyView(); persist();
+    view.x = viewport.clientWidth / 2 - (n.cfg.x + n.cfg.w / 2);
+    view.y = viewport.clientHeight / 2 - (n.cfg.y + n.cfg.h / 2);
+    applyView(); saveView();
     activate(n); n.term.focus();
   }
 
-  function arrangeGrid() {
-    const list = [...nodes.values()];
-    if (!list.length) return;
-    const cols = Math.ceil(Math.sqrt(list.length));
-    const w = 720, h = 440, gap = 24;
-    list.forEach((n, i) => {
-      Object.assign(n.cfg, { x: (i % cols) * (w + gap), y: Math.floor(i / cols) * (h + gap), w, h });
-      place(n); refit(n);
+  // ---------------------------------------------------------------- sessões (abas)
+  function makeSession(data) {
+    const world = document.createElement('div');
+    world.className = 'world';
+    const svg = document.createElementNS(SVG, 'svg');
+    svg.setAttribute('class', 'arrows');
+    world.appendChild(svg);
+    viewport.appendChild(world);
+
+    const tab = document.createElement('div');
+    tab.className = 'tab';
+    tab.innerHTML = `<span class="tname"></span><span class="adot" title="Um terminal desta sessão precisa de você"></span><button class="tclose" title="Fechar sessão" aria-label="Fechar sessão">${ICONS.close}</button>`;
+    tabsEl.insertBefore(tab, $('#btnAddSession'));
+
+    const s = { id: data.id, name: data.name, view: { ...data.view }, arrows: data.arrows, world, svg, tab };
+    sessions.set(s.id, s);
+
+    const nameEl = tab.querySelector('.tname');
+    tab.addEventListener('click', (e) => { if (!e.target.closest('.tclose') && !nameEl.isContentEditable) switchTo(s.id); });
+    nameEl.addEventListener('dblclick', () => startRename(nameEl, (name) => api('PATCH', `/api/sessions/${s.id}`, { name })));
+    tab.querySelector('.tclose').addEventListener('click', () => {
+      api('DELETE', `/api/sessions/${s.id}`).catch((err) => toast(err.message));
     });
-    fitAll();
+    return s;
+  }
+
+  function switchTo(id, remember = true) {
+    if (!sessions.has(id)) return;
+    active = id;
+    for (const s of sessions.values()) {
+      s.world.classList.toggle('active', s.id === id);
+      s.tab.classList.toggle('active', s.id === id);
+    }
+    applyView(); updateEmpty(); updateSummary();
+    if (remember) api('PUT', '/api/active', { id }).catch(() => {});
+  }
+
+  function updateTabs() {
+    for (const s of sessions.values()) {
+      s.tab.classList.toggle('alert', sessionNodes(s).some((n) => n.alert));
+      s.tab.querySelector('.tclose').hidden = sessions.size === 1;
+    }
+    const waiting = [...nodes.values()].filter((n) => n.alert).length;
+    document.title = waiting ? `(${waiting}) Orquestra` : 'Orquestra';
+    updateSummary();
+  }
+
+  // resumo no canto: quantos terminais da sessão estão em cada estado
+  function updateSummary() {
+    const s = cur();
+    const list = s ? sessionNodes(s) : [];
+    const count = (st) => list.filter((n) => n.status === st).length;
+    const put = (id, k, label) => {
+      const el = $(id);
+      el.hidden = !k;
+      el.querySelector('b').textContent = `${k} ${label}`;
+    };
+    put('#sumWorking', count('working'), 'trabalhando');
+    put('#sumIdle', count('idle'), count('idle') === 1 ? 'parado' : 'parados');
+    put('#sumAlert', count('alert'), count('alert') === 1 ? 'precisa de você' : 'precisam de você');
+  }
+
+  // Aplica o estado enviado pelo servidor. Posições de terminais já abertos ficam com a janela,
+  // para não "pular" enquanto a pessoa arrasta.
+  function reconcile(st) {
+    const ids = new Set(st.sessions.map((s) => s.id));
+    for (const s of [...sessions.values()]) {
+      if (!ids.has(s.id)) { s.world.remove(); s.tab.remove(); sessions.delete(s.id); }
+    }
+    const termIds = new Set();
+    for (const data of st.sessions) {
+      const s = sessions.get(data.id) || makeSession(data);
+      s.name = data.name;
+      s.arrows = data.arrows;
+      const nameEl = s.tab.querySelector('.tname');
+      if (!nameEl.isContentEditable) nameEl.textContent = data.name;
+      tabsEl.insertBefore(s.tab, $('#btnAddSession'));
+      for (const cfg of data.terminals) {
+        termIds.add(cfg.id);
+        const n = nodes.get(cfg.id);
+        if (!n) makeNode(cfg, s);
+        else {
+          Object.assign(n.cfg, { name: cfg.name, branch: cfg.branch });
+          if (!n.nameEl.isContentEditable) n.nameEl.textContent = cfg.name;
+          n.subEl.textContent = subtitle(cfg);
+        }
+      }
+    }
+    for (const n of [...nodes.values()]) if (!termIds.has(n.cfg.id)) disposeNode(n);
+    if (!active || !sessions.has(active)) switchTo(st.activeSession, false);
+    for (const s of sessions.values()) drawArrows(s);
+    updateTabs(); updateEmpty();
   }
 
   // ---------------------------------------------------------------- nós
+  const AGENT_LABEL = { claude: 'claude', codex: 'codex', gemini: 'gemini', antigravity: 'antigravity' };
+  const subtitle = (cfg) => [shortPath(cfg.cwd), cfg.branch, AGENT_LABEL[cfg.agent] || 'terminal'].filter(Boolean).join(' · ');
+
   function place(n) {
     const { x, y, w, h } = n.cfg;
     Object.assign(n.el.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' });
+    drawArrows(n.session);
   }
 
   function activate(n) {
@@ -259,82 +772,97 @@
 
   function send(n, msg) { if (n.ws && n.ws.readyState === 1) n.ws.send(JSON.stringify(msg)); }
 
+  const STATE_LABEL = { working: 'trabalhando', idle: 'parado', alert: 'precisa de você', dead: 'encerrado', connecting: 'conectando…' };
   function setStatus(n, s) {
+    const changed = n.status !== s;
     n.status = s;
     n.dot.className = 'status ' + s;
-    n.stateEl.textContent = { working: 'trabalhando', idle: 'parado', alert: 'precisa de você', dead: 'encerrado', connecting: 'conectando…' }[s] || '';
-    updateTitle();
+    n.stateEl.className = 'state ' + s;
+    n.stateEl.textContent = STATE_LABEL[s] || '';
+    if (changed && n.session.id === active) updateSummary();
   }
 
   function setAlert(n, on) {
     n.alert = on;
     n.el.classList.toggle('alert', on);
     setStatus(n, on ? 'alert' : (n.status === 'alert' ? 'idle' : n.status));
+    updateTabs();
   }
 
-  function updateTitle() {
-    const waiting = [...nodes.values()].filter(n => n.alert).length;
-    document.title = waiting ? `(${waiting}) Orquestra` : 'Orquestra';
+  function startRename(el, save) {
+    const old = el.textContent;
+    el.contentEditable = 'true'; el.focus();
+    document.getSelection().selectAllChildren(el);
+    const done = () => {
+      el.contentEditable = 'false';
+      el.removeEventListener('blur', done);
+      const name = el.textContent.trim();
+      el.textContent = name || old;
+      if (name && name !== old) save(name).catch((err) => { el.textContent = old; toast(err.message); });
+    };
+    el.addEventListener('blur', done);
+    el.addEventListener('keydown', function key(e) {
+      if (e.key === 'Enter') { e.preventDefault(); el.removeEventListener('keydown', key); el.blur(); }
+      if (e.key === 'Escape') { el.textContent = old; el.removeEventListener('keydown', key); el.blur(); }
+    });
   }
 
-  function makeNode(cfg) {
-    const el = document.createElement('div');
+  function makeNode(cfg, session) {
+    const el = document.createElement('section');
     el.className = 'node';
-    el.style.setProperty('--c', cfg.color);
     el.innerHTML = `
       <div class="head">
-        <span class="bar-c"></span>
         <span class="status"></span>
         <div class="title"><span class="name"></span><span class="sub"></span></div>
         <span class="state"></span>
-        <button data-a="focus" title="Focar (zoom 100%)">⤢</button>
-        <button data-a="restart" title="Reiniciar terminal">↻</button>
-        <button data-a="close" title="Fechar e encerrar">✕</button>
+        <div class="acts">
+          <button class="icon-btn" data-a="vscode" title="Abrir a pasta no VS Code" aria-label="Abrir a pasta no VS Code">${ICONS.vscode}</button>
+          <button class="icon-btn" data-a="focus" title="Focar (zoom 100%)" aria-label="Focar">${ICONS.focus}</button>
+          <button class="icon-btn" data-a="restart" title="Reiniciar terminal" aria-label="Reiniciar terminal">${ICONS.restart}</button>
+          <button class="icon-btn" data-a="finish" title="Finalizar" aria-label="Finalizar">${ICONS.close}</button>
+        </div>
       </div>
       <div class="body"></div>
       <div class="grip"></div>`;
-    world.appendChild(el);
+    session.world.appendChild(el);
 
     const term = new Terminal({
       fontFamily: 'ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace',
-      fontSize: 13, cursorBlink: true, allowProposedApi: true, scrollback: 5000,
-      theme: { background: '#0b0c10', foreground: '#e6e7eb', cursor: cfg.color, selectionBackground: '#3a4466' },
+      fontSize: 13, lineHeight: 1.15, cursorBlink: true, allowProposedApi: true, scrollback: 5000,
+      theme: XTERM_THEMES[resolvedTheme()],
     });
     const fit = new FitAddon.FitAddon();
     term.loadAddon(fit);
     term.open(el.querySelector('.body'));
 
     const n = {
-      cfg, el, term, fit, ws: null, alert: false, status: 'connecting', lastOut: 0,
+      cfg: { ...cfg }, session, el, term, fit, ws: null, alert: false, status: 'connecting', lastOut: 0,
       dot: el.querySelector('.status'), stateEl: el.querySelector('.state'),
+      nameEl: el.querySelector('.name'), subEl: el.querySelector('.sub'),
     };
-    const nameEl = el.querySelector('.name');
-    nameEl.textContent = cfg.name;
-    el.querySelector('.sub').textContent = shortPath(cfg.cwd) + (cfg.branch ? `  ⎇ ${cfg.branch}` : '');
+    n.nameEl.textContent = cfg.name;
+    n.subEl.textContent = subtitle(cfg);
+    el.setAttribute('aria-label', `Terminal ${cfg.name}`);
     nodes.set(cfg.id, n);
     place(n);
 
     term.onData((d) => { send(n, { t: 'in', d }); if (n.alert) setAlert(n, false); });
     term.onBell(() => notify(n)); // agentes podem tocar o "sino" quando precisam de você
 
-    // renomear com duplo clique
-    nameEl.addEventListener('dblclick', () => {
-      nameEl.contentEditable = 'true'; nameEl.focus();
-      document.getSelection().selectAllChildren(nameEl);
-    });
-    const finishRename = () => {
-      nameEl.contentEditable = 'false';
-      cfg.name = nameEl.textContent.trim() || cfg.name; nameEl.textContent = cfg.name; persist();
-    };
-    nameEl.addEventListener('blur', finishRename);
-    nameEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); nameEl.blur(); } });
+    n.nameEl.addEventListener('dblclick', () => startRename(n.nameEl, (name) => api('PATCH', `/api/terminals/${cfg.id}`, { name })));
 
-    // botões
     el.querySelector('.head').addEventListener('click', (e) => {
-      const a = e.target.dataset && e.target.dataset.a;
+      const b = e.target.closest('button[data-a]');
+      const a = b && b.dataset.a;
       if (a === 'focus') focusNode(n);
-      if (a === 'close' && confirm(`Encerrar "${cfg.name}"? O processo do agente será fechado.`)) closeNode(n);
-      if (a === 'restart') { send(n, { t: 'kill' }); setTimeout(() => { term.reset(); connect(n); }, 200); }
+      if (a === 'finish') openFinish(n);
+      if (a === 'vscode') api('POST', `/api/terminals/${cfg.id}/vscode`).catch((err) => toast(err.message));
+      if (a === 'restart') {
+        term.reset();
+        api('POST', `/api/terminals/${cfg.id}/restart`)
+          .then(() => { if (!n.ws || n.ws.readyState > 1) connect(n); else setStatus(n, 'working'); })
+          .catch((err) => toast(err.message));
+      }
     });
 
     el.addEventListener('pointerdown', () => activate(n), true);
@@ -342,77 +870,69 @@
     // arrastar pelo cabeçalho
     el.querySelector('.head').addEventListener('pointerdown', (e) => {
       if (e.target.closest('button') || e.target.isContentEditable) return;
-      dragWith(e, (dx, dy, o) => { cfg.x = o.x + dx; cfg.y = o.y + dy; place(n); }, { x: cfg.x, y: cfg.y });
+      dragWith(e, (dx, dy, o) => { n.cfg.x = o.x + dx; n.cfg.y = o.y + dy; place(n); }, { x: n.cfg.x, y: n.cfg.y },
+        () => api('PATCH', `/api/terminals/${cfg.id}`, { x: n.cfg.x, y: n.cfg.y }).catch(() => {}));
     });
 
     // redimensionar pelo canto
     el.querySelector('.grip').addEventListener('pointerdown', (e) => {
       e.stopPropagation();
       dragWith(e, (dx, dy, o) => {
-        cfg.w = Math.max(320, o.w + dx); cfg.h = Math.max(200, o.h + dy); place(n); refit(n);
-      }, { w: cfg.w, h: cfg.h });
+        n.cfg.w = Math.max(320, o.w + dx); n.cfg.h = Math.max(200, o.h + dy); place(n); refit(n);
+      }, { w: n.cfg.w, h: n.cfg.h }, () => api('PATCH', `/api/terminals/${cfg.id}`, { w: n.cfg.w, h: n.cfg.h }).catch(() => {}));
     });
 
     new ResizeObserver(() => refit(n)).observe(el.querySelector('.body'));
     connect(n);
+    if (pendingFocus === cfg.id) { pendingFocus = null; switchTo(session.id); activate(n); term.focus(); }
     return n;
   }
 
+  function disposeNode(n) {
+    n.closing = true;
+    try { n.ws && n.ws.close(); } catch {}
+    n.term.dispose(); n.el.remove(); nodes.delete(n.cfg.id);
+  }
+
   // arrasto que respeita o zoom atual
-  function dragWith(e, onMove, origin) {
+  function dragWith(e, onMove, origin, onEnd) {
     e.preventDefault();
     const sx = e.clientX, sy = e.clientY;
     const target = e.currentTarget;
+    const view = cur().view;
     target.setPointerCapture(e.pointerId);
     const move = (ev) => onMove((ev.clientX - sx) / view.s, (ev.clientY - sy) / view.s, origin);
-    const up = () => { target.removeEventListener('pointermove', move); target.removeEventListener('pointerup', up); persist(); };
+    const up = () => { target.removeEventListener('pointermove', move); target.removeEventListener('pointerup', up); onEnd(); };
     target.addEventListener('pointermove', move);
     target.addEventListener('pointerup', up);
   }
 
   function connect(n) {
-    const c = n.cfg;
-    const q = new URLSearchParams({ id: c.id, cwd: c.cwd, cmd: c.cmd || '', branch: c.branch || '',
-      cols: n.term.cols, rows: n.term.rows });
-    const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/term?${q}`);
+    const ws = new WebSocket(`ws://${location.host}/term?id=${encodeURIComponent(n.cfg.id)}`);
     n.ws = ws;
     setStatus(n, 'connecting');
     ws.onopen = () => refit(n);
     ws.onmessage = (ev) => {
-      if (n.ws !== ws) return; // mensagem de uma conexão antiga (após reiniciar)
+      if (n.ws !== ws) return;
       const m = JSON.parse(ev.data);
       if (m.t === 'out') {
         n.term.write(m.d);
         n.lastOut = Date.now();
         if (!n.alert) setStatus(n, 'working');
-      } else if (m.t === 'info') {
-        if (m.cwd && m.cwd !== c.cwd && m.worktree) {
-          n.el.querySelector('.sub').textContent = shortPath(m.cwd) + `  ⎇ ${c.branch}`;
-        }
-      } else if (m.t === 'error') {
-        n.term.write(`\r\n\x1b[31mErro: ${m.d}\x1b[0m\r\n`);
-        toast(`${c.name}: ${m.d}`);
-        setStatus(n, 'dead');
       } else if (m.t === 'exit') {
-        n.term.write(`\r\n\x1b[90m[processo encerrado — clique em ↻ para reiniciar]\x1b[0m\r\n`);
+        n.term.write(`\r\n\x1b[90m[processo encerrado — clique em reiniciar]\x1b[0m\r\n`);
         setStatus(n, 'dead');
       }
     };
-    ws.onclose = () => { if (n.ws === ws && n.status !== 'dead' && nodes.has(c.id)) setStatus(n, 'dead'); };
-  }
-
-  function closeNode(n) {
-    send(n, { t: 'kill' });
-    try { n.ws && n.ws.close(); } catch {}
-    n.term.dispose(); n.el.remove(); nodes.delete(n.cfg.id);
-    updateEmpty(); updateTitle(); persist();
+    ws.onclose = () => { if (n.ws === ws && !n.closing && n.status !== 'dead') setStatus(n, 'dead'); };
   }
 
   function notify(n) {
-    if (document.hasFocus() && n.el.classList.contains('active')) return;
+    if (document.hasFocus() && n.session.id === active && n.el.classList.contains('active')) return;
     setAlert(n, true);
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('Orquestra', { body: `${n.cfg.name} precisa de você` });
+    if ('Notification' in window && Notification.permission !== 'denied') {
+      const note = new Notification('Orquestra', { body: `${n.cfg.name} precisa de você (${n.session.name})` });
+      note.onclick = () => { if (app) app.show(); focusNode(n); };
     }
   }
 
@@ -424,85 +944,354 @@
     }
   }, 500);
 
-  // ---------------------------------------------------------------- utilidades
-  const shortPath = (p) => (p || '').replace(defaults.home, '~');
-  const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
-  const updateEmpty = () => { document.getElementById('empty').style.display = nodes.size ? 'none' : 'grid'; };
-  function toast(msg) {
-    const t = document.getElementById('toast');
-    t.textContent = msg; t.style.display = 'block';
-    clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = 'none'), 5000);
+  // ---------------------------------------------------------------- conexões (setas)
+  // ponto na borda do retângulo R na direção do centro de T
+  function edge(R, T) {
+    const cx = R.x + R.w / 2, cy = R.y + R.h / 2;
+    const dx = T.x + T.w / 2 - cx, dy = T.y + T.h / 2 - cy;
+    if (!dx && !dy) return { x: cx, y: cy };
+    const t = Math.min(R.w / 2 / Math.abs(dx || 1e-9), R.h / 2 / Math.abs(dy || 1e-9));
+    return { x: cx + dx * t, y: cy + dy * t };
   }
 
-  // ---------------------------------------------------------------- novo agente
-  const dlg = document.getElementById('dlg');
-  const form = document.getElementById('form');
+  function drawArrows(s) {
+    if (!s) return;
+    s.svg.querySelectorAll('g').forEach((g) => g.remove());
+    for (const a of s.arrows) {
+      const A = nodes.get(a.from), B = nodes.get(a.to);
+      if (!A || !B) continue;
+      const p = edge(A.cfg, B.cfg), q = edge(B.cfg, A.cfg);
+      const g = document.createElementNS(SVG, 'g');
+      g.setAttribute('class', `arrow ${a.type}`);
+      for (const cls of ['hit', 'vis']) {
+        const line = document.createElementNS(SVG, 'line');
+        line.setAttribute('class', cls);
+        line.setAttribute('x1', p.x); line.setAttribute('y1', p.y);
+        line.setAttribute('x2', q.x); line.setAttribute('y2', q.y);
+        if (cls === 'vis') line.setAttribute('marker-end', `url(#m-${a.type})`);
+        g.appendChild(line);
+      }
+      const title = document.createElementNS(SVG, 'title');
+      title.textContent = a.type === 'comando'
+        ? `${A.cfg.name} comanda ${B.cfg.name}`
+        : `${A.cfg.name} depende de ${B.cfg.name}`;
+      g.appendChild(title);
+      g.addEventListener('click', (e) => openArrowMenu(a, e));
+      s.svg.appendChild(g);
+    }
+  }
+
+  const menu = $('#arrowMenu');
+  let menuArrow = null;
+  function openArrowMenu(a, e) {
+    menuArrow = a;
+    Object.assign(menu.style, { display: 'flex', left: e.clientX + 'px', top: e.clientY + 'px' });
+  }
+  menu.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b || !menuArrow) return;
+    const req = b.hasAttribute('data-remove')
+      ? api('DELETE', `/api/arrows/${menuArrow.id}`)
+      : api('PATCH', `/api/arrows/${menuArrow.id}`, { type: b.dataset.type });
+    req.catch((err) => toast(err.message));
+    menu.style.display = 'none';
+  });
+  window.addEventListener('pointerdown', (e) => { if (!menu.contains(e.target)) menu.style.display = 'none'; });
+
+  // ---------------------------------------------------------------- nova conexão (modal)
+  const dlgConn = $('#dlgConn');
+  const connFrom = $('#connFrom'), connTo = $('#connTo');
+  let connType = 'comando';
+
+  function fillSelect(sel, list, value) {
+    sel.innerHTML = '';
+    for (const n of list) sel.add(new Option(n.cfg.name, n.cfg.id, false, n.cfg.id === value));
+  }
+
+  function renderConn() {
+    const isCmd = connType === 'comando';
+    for (const c of dlgConn.querySelectorAll('.type-card')) c.setAttribute('aria-pressed', String(c.dataset.type === connType));
+    $('#fromLabel').textContent = isCmd ? 'Quem comanda' : 'Dependente';
+    $('#toLabel').textContent = isCmd ? 'Quem é comandado' : 'Responsável';
+    const A = nodes.get(connFrom.value), B = nodes.get(connTo.value);
+    $('#prevFrom').textContent = A ? A.cfg.name : '—';
+    $('#prevTo').textContent = B ? B.cfg.name : '—';
+    $('#prevFromDot').className = A ? A.status : '';
+    $('#prevToDot').className = B ? B.status : '';
+    $('#prevArrow').setAttribute('class', connType);
+    $('#prevText').textContent = A && B ? `${A.cfg.name} ${isCmd ? 'comanda' : 'depende de'} ${B.cfg.name}` : '';
+    $('#connErr').textContent = A && B && A === B ? 'Escolha dois terminais diferentes.' : '';
+    $('#btnCreateConn').disabled = !A || !B || A === B;
+  }
+
+  function openConnDialog() {
+    const list = sessionNodes(cur());
+    if (list.length < 2) return toast('A sessão precisa de pelo menos dois terminais para uma conexão.');
+    // começa pelo terminal ativo, se houver
+    const act = list.find((n) => n.el.classList.contains('active')) || list[0];
+    const other = list.find((n) => n !== act);
+    connType = 'comando';
+    fillSelect(connFrom, list, act.cfg.id);
+    fillSelect(connTo, list, other.cfg.id);
+    renderConn();
+    dlgConn.showModal();
+  }
+
+  dlgConn.querySelector('.types').addEventListener('click', (e) => {
+    const c = e.target.closest('.type-card');
+    if (c) { connType = c.dataset.type; renderConn(); }
+  });
+  connFrom.addEventListener('change', renderConn);
+  connTo.addEventListener('change', renderConn);
+  $('#btnSwap').addEventListener('click', () => {
+    const a = connFrom.value; connFrom.value = connTo.value; connTo.value = a; renderConn();
+  });
+  $('#btnCancelConn').addEventListener('click', () => dlgConn.close());
+  $('#connForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (connFrom.value === connTo.value) return renderConn();
+    $('#btnCreateConn').disabled = true;
+    try {
+      await api('POST', '/api/arrows', { from: connFrom.value, to: connTo.value, type: connType });
+      dlgConn.close();
+    } catch (err) {
+      $('#connErr').textContent = err.message;
+    } finally {
+      $('#btnCreateConn').disabled = false;
+    }
+  });
+
+  // ---------------------------------------------------------------- utilidades
+  const shortPath = (p) => (defaults.home && (p || '').startsWith(defaults.home) ? '~' + p.slice(defaults.home.length) : p || '');
+  const updateEmpty = () => { $('#empty').style.display = cur() && sessionNodes(cur()).length ? 'none' : 'grid'; };
+  const basename = (p) => p.split(/[\\/]/).filter(Boolean).pop() || p;
+  function toast(msg) {
+    const t = $('#toast');
+    t.textContent = msg; t.style.display = 'block';
+    clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = 'none'), 8000);
+  }
+
+  // ---------------------------------------------------------------- escolha do agente (sanfona)
+  // sem agente marcado, o terminal abre só com o shell
+  const AGENTS = [
+    { id: 'claude', name: 'Claude Code', cmd: 'claude', mono: 'Cl', v: 'claude' },
+    { id: 'codex', name: 'Codex', cmd: 'codex', mono: 'Cx', v: 'codex' },
+    { id: 'gemini', name: 'Gemini CLI', cmd: 'gemini', mono: 'Ge', v: 'gemini' },
+    { id: 'antigravity', name: 'Antigravity', cmd: 'antigravity', mono: 'Ag', v: 'anti' },
+  ];
+  const NO_AGENT = { id: '', name: 'Nenhum agente', cmd: 'abre só o terminal', mono: '>_', v: 'none' };
+  const acc = $('#agentAcc'), agentList = $('#agentList'), agentTrigger = $('#agentTrigger');
+
+  function icoStyle(el, a) {
+    el.textContent = a.mono;
+    el.style.background = `var(--ag-${a.v}-bg)`;
+    el.style.color = `var(--ag-${a.v}-fg)`;
+  }
+
+  agentList.innerHTML = AGENTS.map((a) => `
+    <button type="button" class="ag-opt" data-agent="${a.id}" aria-pressed="false">
+      <span class="mono-ico"></span><span class="n">${a.name}</span><span class="cmd">${a.cmd}</span><span class="check">${ICONS.check}</span>
+    </button>`).join('') + '<div class="acc-note">Sem agente marcado, abre só o terminal. Clique de novo para desmarcar.</div>';
+  agentList.querySelectorAll('.ag-opt').forEach((b) => icoStyle(b.querySelector('.mono-ico'), AGENTS.find((a) => a.id === b.dataset.agent)));
+
+  function setAccOpen(open) {
+    acc.classList.toggle('open', open);
+    agentTrigger.setAttribute('aria-expanded', String(open));
+  }
+  function setAgent(id) {
+    form.agent.value = id;
+    const a = AGENTS.find((x) => x.id === id) || NO_AGENT;
+    icoStyle($('#agentIco'), a);
+    $('#agentName').textContent = a.name;
+    $('#agentCmd').textContent = a.cmd;
+    agentList.querySelectorAll('.ag-opt').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.agent === id)));
+  }
+  agentTrigger.addEventListener('click', () => setAccOpen(!acc.classList.contains('open')));
+  agentList.addEventListener('click', (e) => {
+    const b = e.target.closest('.ag-opt');
+    if (!b) return;
+    if (form.agent.value === b.dataset.agent) setAgent('');   // clicar de novo desmarca
+    else { setAgent(b.dataset.agent); setAccOpen(false); }
+  });
+
+  // ---------------------------------------------------------------- novo terminal
+  const dlgNew = $('#dlgNew');
+  const form = $('#form');
+  let gitInfo = null;
 
   function openNewDialog() {
-    const last = [...nodes.values()].pop();
-    dlg.returnValue = '';
-    form.name.value = '';
-    form.branch.value = '';
-    form.cwd.value = last ? last.cfg.cwd : defaults.cwd;
-    form.cmd.value = recentCmds[0] || '';
-    document.getElementById('cmds').innerHTML = recentCmds.map(c => `<option value="${c.replace(/"/g, '&quot;')}">`).join('');
-    dlg.showModal();
-    form.name.focus();
+    form.reset();
+    gitInfo = null;
+    $('#formErr').textContent = '';
+    setAgent('');
+    setAccOpen(true);
+    renderGit();
+    if (!app) $('#btnBrowse').hidden = true;
+    dlgNew.showModal();
+    form.dir.focus();
   }
 
-  dlg.addEventListener('close', () => {
-    if (dlg.returnValue !== 'ok') return;
-    const cmd = form.cmd.value.trim();
-    const branch = form.branch.value.trim();
-    if (cmd) recentCmds = [cmd, ...recentCmds.filter(c => c !== cmd)].slice(0, 8);
+  function renderGit() {
+    const where = form.where;
+    const hint = $('#gitHint');
+    where.innerHTML = '<option value="here">Na pasta escolhida</option>';
+    where.disabled = true;
+    hint.textContent = '';
+    if (gitInfo && !gitInfo.exists) hint.textContent = 'Pasta não encontrada.';
+    else if (gitInfo && !gitInfo.repo) hint.textContent = 'Não é um repositório Git: o terminal abre na pasta.';
+    else if (gitInfo) {
+      const r = gitInfo.repo;
+      where.options[0].textContent = `Na pasta escolhida${r.currentBranch && r.top === r.root ? ` (${r.currentBranch})` : ''}`;
+      for (const wt of r.worktrees) {
+        where.add(new Option(`Worktree ${basename(wt.path)}${wt.branch ? ` (${wt.branch})` : ''}`, 'wt:' + wt.path));
+      }
+      where.add(new Option('Novo worktree…', 'new'));
+      where.disabled = false;
+      $('#branches').innerHTML = r.branches.map((b) => `<option value="${b.replace(/"/g, '&quot;')}">`).join('');
+    }
+    renderWhere();
+  }
 
-    // posiciona o novo nó no centro da tela atual
-    const w = 720, h = 440;
-    const cx = (innerWidth / 2 - view.x) / view.s, cy = ((innerHeight + 50) / 2 - view.y) / view.s;
-    const offset = (nodes.size % 5) * 30;
-    const cfg = {
-      id: uid(),
-      name: form.name.value.trim() || branch || (cmd ? cmd.split(' ')[0] : 'terminal'),
-      cwd: form.cwd.value.trim(), cmd, branch,
-      x: Math.round(cx - w / 2 + offset), y: Math.round(cy - h / 2 + offset), w, h,
-      color: COLORS[nodes.size % COLORS.length],
-    };
-    const n = makeNode(cfg);
-    activate(n); n.term.focus();
-    updateEmpty(); persist();
+  function renderWhere() {
+    const isNew = form.where.value === 'new';
+    $('#branchRow').hidden = !isNew;
+    form.branch.required = isNew;
+    if (isNew) {
+      const base = gitInfo.repo.currentBranch;
+      $('#gitHint').textContent = `Uma branch nova parte de ${base || 'HEAD'}, a branch atual da pasta original. O worktree fica ao lado do projeto.`;
+    } else if (gitInfo && gitInfo.repo) {
+      $('#gitHint').textContent = '';
+    }
+  }
+
+  let dirTimer = null;
+  function checkDir() {
+    clearTimeout(dirTimer);
+    dirTimer = setTimeout(async () => {
+      const dir = form.dir.value.trim();
+      if (!dir) { gitInfo = null; return renderGit(); }
+      try {
+        const info = await api('GET', `/api/git?dir=${encodeURIComponent(dir)}`);
+        if (form.dir.value.trim() === dir) { gitInfo = info; renderGit(); }
+      } catch (err) { $('#formErr').textContent = err.message; }
+    }, 250);
+  }
+
+  form.dir.addEventListener('input', checkDir);
+  form.where.addEventListener('change', renderWhere);
+  $('#btnBrowse').addEventListener('click', async () => {
+    const dir = await app.pickFolder(form.dir.value.trim() || undefined);
+    if (dir) { form.dir.value = dir; checkDir(); }
   });
+  $('#btnCancelNew').addEventListener('click', () => dlgNew.close());
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const where = form.where.value;
+    const view = cur().view;
+    const w = 720, h = 440;
+    const offset = (sessionNodes(cur()).length % 5) * 30;
+    const body = {
+      sessionId: active,
+      name: form.name.value.trim(),
+      agent: form.agent.value,
+      dir: where.startsWith('wt:') ? where.slice(3) : form.dir.value.trim(),
+      worktreeBranch: where === 'new' ? form.branch.value.trim() : '',
+      x: (viewport.clientWidth / 2 - view.x) / view.s - w / 2 + offset,
+      y: (viewport.clientHeight / 2 - view.y) / view.s - h / 2 + offset,
+    };
+    $('#btnOpen').disabled = true;
+    $('#formErr').textContent = '';
+    try {
+      const cfg = await api('POST', '/api/terminals', body);
+      dlgNew.close();
+      const n = nodes.get(cfg.id);
+      if (n) { activate(n); n.term.focus(); } else pendingFocus = cfg.id;
+    } catch (err) {
+      $('#formErr').textContent = err.message;
+    } finally {
+      $('#btnOpen').disabled = false;
+    }
+  });
+
+  // ---------------------------------------------------------------- finalizar
+  const dlgFinish = $('#dlgFinish');
+  let finishing = null;
+
+  async function openFinish(n) {
+    let info;
+    try { info = await api('GET', `/api/terminals/${n.cfg.id}/finish-info`); } catch (err) { return toast(err.message); }
+    finishing = n;
+    $('#finishTitle').textContent = `Finalizar “${n.cfg.name}”`;
+    $('#finishErr').textContent = '';
+    $('#btnDeleteWt').hidden = !info.worktree;
+    $('#btnOnlyClose').textContent = info.worktree ? 'Só fechar o terminal' : 'Fechar terminal';
+    $('#finishText').textContent = info.worktree
+      ? `O terminal está no worktree ${shortPath(info.worktree)}${info.branch ? ` (${info.branch})` : ''}. Você pode só fechar o terminal ou fechar e excluir o worktree e a branch. A exclusão só acontece se nenhum trabalho for perdido.`
+      : 'O processo do terminal e do agente será encerrado.';
+    dlgFinish.showModal();
+  }
+
+  async function finish(deleteWorktree) {
+    const n = finishing;
+    $('#finishErr').textContent = '';
+    for (const b of dlgFinish.querySelectorAll('button')) b.disabled = true;
+    try {
+      await api('POST', `/api/terminals/${n.cfg.id}/finish`, { deleteWorktree });
+      dlgFinish.close();
+    } catch (err) {
+      if (err.reasons) {
+        $('#finishErr').textContent = `Não é possível excluir:\n${err.reasons.map((r) => '• ' + r).join('\n')}\nVocê ainda pode só fechar o terminal.`;
+      } else {
+        dlgFinish.close();
+        toast(err.message);
+      }
+    } finally {
+      for (const b of dlgFinish.querySelectorAll('button')) b.disabled = false;
+    }
+  }
+
+  $('#btnOnlyClose').addEventListener('click', () => finish(false));
+  $('#btnDeleteWt').addEventListener('click', () => finish(true));
+  $('#btnCancelFinish').addEventListener('click', () => dlgFinish.close());
 
   // ---------------------------------------------------------------- barra e atalhos
-  document.getElementById('btnNew').onclick = openNewDialog;
-  document.getElementById('btnGrid').onclick = arrangeGrid;
-  document.getElementById('btnFit').onclick = fitAll;
-  document.getElementById('btnZoomIn').onclick = () => zoomAt(1.2, innerWidth / 2, innerHeight / 2);
-  document.getElementById('btnZoomOut').onclick = () => zoomAt(1 / 1.2, innerWidth / 2, innerHeight / 2);
+  let pendingSession = null;
+  $('#btnNew').onclick = openNewDialog;
+  $('#btnConnect').onclick = openConnDialog;
+  $('#btnAddSession').onclick = () => api('POST', '/api/sessions')
+    .then((s) => { pendingSession = s.id; if (sessions.has(s.id)) switchTo(s.id); })
+    .catch((err) => toast(err.message));
+  $('#btnFit').onclick = fitAll;
+  $('#btnZoomIn').onclick = () => zoomAt(1.2, viewport.clientWidth / 2, viewport.clientHeight / 2);
+  $('#btnZoomOut').onclick = () => zoomAt(1 / 1.2, viewport.clientWidth / 2, viewport.clientHeight / 2);
+  $('#btnQuit').onclick = () => (app ? app.quit() : toast('Feche o aplicativo pelo menu do sistema.'));
 
   window.addEventListener('keydown', (e) => {
-    const typing = e.target.closest && (e.target.closest('.xterm') || e.target.matches('input, [contenteditable="true"]'));
-    if (typing || dlg.open || e.ctrlKey || e.metaKey || e.altKey) return;
-    if (e.key === 'n' || e.key === 'N') { e.preventDefault(); openNewDialog(); }
-    if (e.key === 'g' || e.key === 'G') arrangeGrid();
-    if (e.key === 'f' || e.key === 'F') fitAll();
+    const typing = e.target.closest && (e.target.closest('.xterm') || e.target.matches('input, select, [contenteditable="true"]'));
+    if (typing || dlgNew.open || dlgFinish.open || dlgConn.open || e.ctrlKey || e.metaKey || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k === 'n') { e.preventDefault(); openNewDialog(); }
+    if (k === 'c') { e.preventDefault(); openConnDialog(); }
+    if (k === 'f') fitAll();
   });
 
-  // pede permissão de notificação no primeiro clique (navegadores exigem um gesto)
-  window.addEventListener('pointerdown', () => {
-    if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
-  }, { once: true });
-
   // ---------------------------------------------------------------- início
-  fetch('/api/defaults').then(r => r.json()).then((d) => {
-    defaults = d;
-    const saved = load();
-    if (saved) {
-      Object.assign(view, saved.view || {});
-      if (saved.recent && saved.recent.length) recentCmds = saved.recent;
-      (saved.nodes || []).forEach(cfg => makeNode(cfg)); // reconecta às sessões que continuam vivas
-    }
-    applyView(); updateEmpty();
-  }).catch(() => toast('Não consegui falar com o servidor. Ele está rodando?'));
+  function listen() {
+    const ws = new WebSocket(`ws://${location.host}/events`);
+    ws.onmessage = (ev) => {
+      const m = JSON.parse(ev.data);
+      if (m.t === 'state') {
+        reconcile(m.state);
+        if (pendingSession && sessions.has(pendingSession)) { switchTo(pendingSession); pendingSession = null; }
+      }
+      if (m.t === 'warn') toast(m.msgs.join('\n'));
+    };
+    ws.onclose = () => setTimeout(listen, 1000);
+  }
+
+  api('GET', '/api/defaults').then((d) => { defaults = d; listen(); })
+    .catch(() => toast('Não consegui falar com o servidor do Orquestra.'));
 })();
 </script>
 </body>
