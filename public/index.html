@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orquestra</title>
+<link rel="stylesheet" href="/vendor/xterm/css/xterm.css">
+<style>
+  :root {
+    --bg: #0e0f13;
+    --dot: #23252e;
+    --panel: #16181f;
+    --panel-2: #1d2029;
+    --line: #2a2d38;
+    --text: #e6e7eb;
+    --muted: #8b8f9c;
+    --accent: #7c9cff;
+    --ok: #4ade80;
+    --idle: #f5b13d;
+    --alert: #f2555a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+
+  /* ---------- barra superior ---------- */
+  #bar { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 1000;
+    display: flex; gap: 6px; align-items: center; padding: 6px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px #0008; }
+  #bar .brand { font-weight: 650; letter-spacing: .02em; padding: 0 8px 0 6px; }
+  #bar .sep { width: 1px; height: 20px; background: var(--line); margin: 0 2px; }
+  button { font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+  button:hover { border-color: #3a3e4c; background: #232633; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #0b0d14; font-weight: 600; }
+  button.primary:hover { filter: brightness(1.08); }
+  #zoomLabel { min-width: 48px; text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* ---------- tela infinita ---------- */
+  #viewport { position: fixed; inset: 0; cursor: grab;
+    background-image: radial-gradient(var(--dot) 1.2px, transparent 1.2px); }
+  #viewport.panning { cursor: grabbing; }
+  #world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+
+  /* ---------- nó de terminal ---------- */
+  .node { position: absolute; display: flex; flex-direction: column; background: #0b0c10;
+    border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px #0009; overflow: hidden; }
+  .node.active { border-color: var(--c); box-shadow: 0 0 0 1px var(--c), 0 10px 30px #0009; }
+  .node.alert { border-color: var(--alert); box-shadow: 0 0 0 2px var(--alert), 0 10px 30px #0009; }
+  .head { display: flex; align-items: center; gap: 8px; padding: 7px 8px 7px 10px; background: var(--panel);
+    border-bottom: 1px solid var(--line); cursor: move; user-select: none; }
+  .head .bar-c { width: 3px; align-self: stretch; border-radius: 2px; background: var(--c); }
+  .status { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+  .status.working { background: var(--ok); animation: pulse 1.2s infinite; }
+  .status.idle { background: var(--idle); }
+  .status.alert { background: var(--alert); }
+  .status.dead { background: #555; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .title { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+  .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; outline: none; }
+  .name[contenteditable="true"] { background: var(--panel-2); border-radius: 4px; padding: 0 4px; cursor: text; }
+  .sub { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .state { color: var(--muted); font-size: 11px; white-space: nowrap; }
+  .head button { padding: 2px 7px; font-size: 12px; background: transparent; border-color: transparent; color: var(--muted); }
+  .head button:hover { color: var(--text); background: var(--panel-2); border-color: var(--line); }
+  .body { flex: 1; min-height: 0; padding: 6px 4px 4px 8px; cursor: auto; }
+  .body .xterm { height: 100%; }
+  .grip { position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize;
+    background: linear-gradient(135deg, transparent 50%, var(--line) 50%, var(--line) 60%, transparent 60%, transparent 70%, var(--line) 70%, var(--line) 80%, transparent 80%); }
+
+  /* ---------- modal ---------- */
+  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 14px;
+    padding: 0; width: min(460px, calc(100vw - 32px)); box-shadow: 0 20px 60px #000c; }
+  dialog::backdrop { background: #0009; }
+  dialog form { padding: 18px; display: grid; gap: 12px; }
+  dialog h2 { margin: 0 0 4px; font-size: 16px; }
+  label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
+  input { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; }
+  input:focus { outline: none; border-color: var(--accent); }
+  .hint { color: var(--muted); font-size: 11px; margin-top: -6px; }
+  .actions { display: flex; flex-direction: row-reverse; justify-content: flex-start; gap: 8px; margin-top: 4px; }
+
+  #empty { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none; color: var(--muted); text-align: center; }
+  #empty b { color: var(--text); }
+  #toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--alert); color: #fff;
+    padding: 8px 14px; border-radius: 8px; display: none; z-index: 2000; max-width: 80vw; }
+</style>
+</head>
+<body>
+
+<div id="viewport"><div id="world"></div></div>
+
+<div id="empty"><div><b>Nenhum agente aberto</b><br>Clique em “+ Agente” ou aperte <b>N</b></div></div>
+
+<div id="bar">
+  <span class="brand">Orquestra</span>
+  <button class="primary" id="btnNew" title="Novo agente (N)">+ Agente</button>
+  <span class="sep"></span>
+  <button id="btnGrid" title="Organizar em grade (G)">Grade</button>
+  <button id="btnFit" title="Ver todos (F)">Ver todos</button>
+  <span class="sep"></span>
+  <button id="btnZoomOut" title="Diminuir zoom">−</button>
+  <span id="zoomLabel">100%</span>
+  <button id="btnZoomIn" title="Aumentar zoom">+</button>
+</div>
+
+<dialog id="dlg">
+  <form method="dialog" id="form">
+    <h2>Novo agente</h2>
+    <label>Nome
+      <input name="name" placeholder="ex.: Claude – backend" autocomplete="off">
+    </label>
+    <label>Pasta do projeto
+      <input name="cwd" required autocomplete="off">
+    </label>
+    <label>Worktree (nome da branch, opcional)
+      <input name="branch" placeholder="ex.: feature-login" autocomplete="off">
+    </label>
+    <div class="hint">Se preenchido, cria um worktree ao lado do projeto (projeto-feature-login) e abre o agente nele.</div>
+    <label>Comando para iniciar
+      <input name="cmd" list="cmds" placeholder="deixe vazio para só um terminal" autocomplete="off">
+      <datalist id="cmds"></datalist>
+    </label>
+    <div class="actions">
+      <button class="primary" value="ok">Abrir</button>
+      <button value="cancel" formnovalidate>Cancelar</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast"></div>
+
+<script src="/vendor/xterm/lib/xterm.js"></script>
+<script src="/vendor/addon-fit/lib/addon-fit.js"></script>
+<script>
+(() => {
+  // ---------------------------------------------------------------- estado
+  const STORE = 'orquestra.layout.v1';
+  const COLORS = ['#7c9cff', '#4ade80', '#f5b13d', '#f472b6', '#38bdf8', '#a78bfa', '#fb923c', '#2dd4bf'];
+  const IDLE_MS = 2500;        // sem saída por esse tempo => "parado"
+  const viewport = document.getElementById('viewport');
+  const world = document.getElementById('world');
+  const view = { x: 0, y: 0, s: 1 };
+  const nodes = new Map();     // id -> objeto do nó
+  let defaults = { home: '~' };
+  let topZ = 1;
+
+  const load = () => { try { return JSON.parse(localStorage.getItem(STORE)) || null; } catch { return null; } };
+  const persist = () => {
+    try {
+      localStorage.setItem(STORE, JSON.stringify({
+        view,
+        nodes: [...nodes.values()].map(n => n.cfg),
+        recent: recentCmds,
+      }));
+    } catch {}
+  };
+  let recentCmds = ['claude'];
+
+  // ---------------------------------------------------------------- câmera
+  function applyView() {
+    world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.s})`;
+    const g = 22 * view.s;
+    viewport.style.backgroundSize = `${g}px ${g}px`;
+    viewport.style.backgroundPosition = `${view.x}px ${view.y}px`;
+    document.getElementById('zoomLabel').textContent = Math.round(view.s * 100) + '%';
+  }
+
+  function zoomAt(factor, cx, cy) {
+    const s = Math.min(2, Math.max(0.2, view.s * factor));
+    const k = s / view.s;
+    view.x = cx - (cx - view.x) * k;
+    view.y = cy - (cy - view.y) * k;
+    view.s = s;
+    applyView(); persist();
+  }
+
+  // arrastar o fundo = mover a tela
+  viewport.addEventListener('pointerdown', (e) => {
+    if (e.target !== viewport && e.target !== world) return;
+    if (e.button !== 0 && e.button !== 1) return;
+    const sx = e.clientX, sy = e.clientY, ox = view.x, oy = view.y;
+    viewport.classList.add('panning');
+    viewport.setPointerCapture(e.pointerId);
+    const move = (ev) => { view.x = ox + ev.clientX - sx; view.y = oy + ev.clientY - sy; applyView(); };
+    const up = () => {
+      viewport.classList.remove('panning');
+      viewport.removeEventListener('pointermove', move);
+      viewport.removeEventListener('pointerup', up);
+      persist();
+    };
+    viewport.addEventListener('pointermove', move);
+    viewport.addEventListener('pointerup', up);
+  });
+
+  // roda do mouse no fundo = zoom; dentro do terminal = rolar o terminal (Ctrl+roda dá zoom em qualquer lugar)
+  window.addEventListener('wheel', (e) => {
+    const onBackground = e.target === viewport || e.target === world;
+    if (!onBackground && !e.ctrlKey) return;
+    e.preventDefault();
+    zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY);
+  }, { passive: false });
+
+  function fitAll() {
+    if (!nodes.size) { view.x = 0; view.y = 0; view.s = 1; applyView(); return; }
+    let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+    for (const n of nodes.values()) {
+      const c = n.cfg;
+      x1 = Math.min(x1, c.x); y1 = Math.min(y1, c.y);
+      x2 = Math.max(x2, c.x + c.w); y2 = Math.max(y2, c.y + c.h);
+    }
+    const pad = 80, W = innerWidth, H = innerHeight - 50;
+    const s = Math.min(1, Math.max(0.2, Math.min((W - pad) / (x2 - x1), (H - pad) / (y2 - y1))));
+    view.s = s;
+    view.x = (W - (x2 - x1) * s) / 2 - x1 * s;
+    view.y = 50 + (H - (y2 - y1) * s) / 2 - y1 * s;
+    applyView(); persist();
+  }
+
+  function focusNode(n) {
+    view.s = 1;
+    view.x = innerWidth / 2 - (n.cfg.x + n.cfg.w / 2);
+    view.y = (innerHeight + 50) / 2 - (n.cfg.y + n.cfg.h / 2);
+    applyView(); persist();
+    activate(n); n.term.focus();
+  }
+
+  function arrangeGrid() {
+    const list = [...nodes.values()];
+    if (!list.length) return;
+    const cols = Math.ceil(Math.sqrt(list.length));
+    const w = 720, h = 440, gap = 24;
+    list.forEach((n, i) => {
+      Object.assign(n.cfg, { x: (i % cols) * (w + gap), y: Math.floor(i / cols) * (h + gap), w, h });
+      place(n); refit(n);
+    });
+    fitAll();
+  }
+
+  // ---------------------------------------------------------------- nós
+  function place(n) {
+    const { x, y, w, h } = n.cfg;
+    Object.assign(n.el.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' });
+  }
+
+  function activate(n) {
+    for (const o of nodes.values()) o.el.classList.toggle('active', o === n);
+    n.el.style.zIndex = ++topZ;
+    if (n.alert) setAlert(n, false);
+  }
+
+  function refit(n) {
+    try {
+      n.fit.fit();
+      send(n, { t: 'resize', cols: n.term.cols, rows: n.term.rows });
+    } catch {}
+  }
+
+  function send(n, msg) { if (n.ws && n.ws.readyState === 1) n.ws.send(JSON.stringify(msg)); }
+
+  function setStatus(n, s) {
+    n.status = s;
+    n.dot.className = 'status ' + s;
+    n.stateEl.textContent = { working: 'trabalhando', idle: 'parado', alert: 'precisa de você', dead: 'encerrado', connecting: 'conectando…' }[s] || '';
+    updateTitle();
+  }
+
+  function setAlert(n, on) {
+    n.alert = on;
+    n.el.classList.toggle('alert', on);
+    setStatus(n, on ? 'alert' : (n.status === 'alert' ? 'idle' : n.status));
+  }
+
+  function updateTitle() {
+    const waiting = [...nodes.values()].filter(n => n.alert).length;
+    document.title = waiting ? `(${waiting}) Orquestra` : 'Orquestra';
+  }
+
+  function makeNode(cfg) {
+    const el = document.createElement('div');
+    el.className = 'node';
+    el.style.setProperty('--c', cfg.color);
+    el.innerHTML = `
+      <div class="head">
+        <span class="bar-c"></span>
+        <span class="status"></span>
+        <div class="title"><span class="name"></span><span class="sub"></span></div>
+        <span class="state"></span>
+        <button data-a="focus" title="Focar (zoom 100%)">⤢</button>
+        <button data-a="restart" title="Reiniciar terminal">↻</button>
+        <button data-a="close" title="Fechar e encerrar">✕</button>
+      </div>
+      <div class="body"></div>
+      <div class="grip"></div>`;
+    world.appendChild(el);
+
+    const term = new Terminal({
+      fontFamily: 'ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace',
+      fontSize: 13, cursorBlink: true, allowProposedApi: true, scrollback: 5000,
+      theme: { background: '#0b0c10', foreground: '#e6e7eb', cursor: cfg.color, selectionBackground: '#3a4466' },
+    });
+    const fit = new FitAddon.FitAddon();
+    term.loadAddon(fit);
+    term.open(el.querySelector('.body'));
+
+    const n = {
+      cfg, el, term, fit, ws: null, alert: false, status: 'connecting', lastOut: 0,
+      dot: el.querySelector('.status'), stateEl: el.querySelector('.state'),
+    };
+    const nameEl = el.querySelector('.name');
+    nameEl.textContent = cfg.name;
+    el.querySelector('.sub').textContent = shortPath(cfg.cwd) + (cfg.branch ? `  ⎇ ${cfg.branch}` : '');
+    nodes.set(cfg.id, n);
+    place(n);
+
+    term.onData((d) => { send(n, { t: 'in', d }); if (n.alert) setAlert(n, false); });
+    term.onBell(() => notify(n)); // agentes podem tocar o "sino" quando precisam de você
+
+    // renomear com duplo clique
+    nameEl.addEventListener('dblclick', () => {
+      nameEl.contentEditable = 'true'; nameEl.focus();
+      document.getSelection().selectAllChildren(nameEl);
+    });
+    const finishRename = () => {
+      nameEl.contentEditable = 'false';
+      cfg.name = nameEl.textContent.trim() || cfg.name; nameEl.textContent = cfg.name; persist();
+    };
+    nameEl.addEventListener('blur', finishRename);
+    nameEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); nameEl.blur(); } });
+
+    // botões
+    el.querySelector('.head').addEventListener('click', (e) => {
+      const a = e.target.dataset && e.target.dataset.a;
+      if (a === 'focus') focusNode(n);
+      if (a === 'close' && confirm(`Encerrar "${cfg.name}"? O processo do agente será fechado.`)) closeNode(n);
+      if (a === 'restart') { send(n, { t: 'kill' }); setTimeout(() => { term.reset(); connect(n); }, 200); }
+    });
+
+    el.addEventListener('pointerdown', () => activate(n), true);
+
+    // arrastar pelo cabeçalho
+    el.querySelector('.head').addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button') || e.target.isContentEditable) return;
+      dragWith(e, (dx, dy, o) => { cfg.x = o.x + dx; cfg.y = o.y + dy; place(n); }, { x: cfg.x, y: cfg.y });
+    });
+
+    // redimensionar pelo canto
+    el.querySelector('.grip').addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      dragWith(e, (dx, dy, o) => {
+        cfg.w = Math.max(320, o.w + dx); cfg.h = Math.max(200, o.h + dy); place(n); refit(n);
+      }, { w: cfg.w, h: cfg.h });
+    });
+
+    new ResizeObserver(() => refit(n)).observe(el.querySelector('.body'));
+    connect(n);
+    return n;
+  }
+
+  // arrasto que respeita o zoom atual
+  function dragWith(e, onMove, origin) {
+    e.preventDefault();
+    const sx = e.clientX, sy = e.clientY;
+    const target = e.currentTarget;
+    target.setPointerCapture(e.pointerId);
+    const move = (ev) => onMove((ev.clientX - sx) / view.s, (ev.clientY - sy) / view.s, origin);
+    const up = () => { target.removeEventListener('pointermove', move); target.removeEventListener('pointerup', up); persist(); };
+    target.addEventListener('pointermove', move);
+    target.addEventListener('pointerup', up);
+  }
+
+  function connect(n) {
+    const c = n.cfg;
+    const q = new URLSearchParams({ id: c.id, cwd: c.cwd, cmd: c.cmd || '', branch: c.branch || '',
+      cols: n.term.cols, rows: n.term.rows });
+    const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/term?${q}`);
+    n.ws = ws;
+    setStatus(n, 'connecting');
+    ws.onopen = () => refit(n);
+    ws.onmessage = (ev) => {
+      if (n.ws !== ws) return; // mensagem de uma conexão antiga (após reiniciar)
+      const m = JSON.parse(ev.data);
+      if (m.t === 'out') {
+        n.term.write(m.d);
+        n.lastOut = Date.now();
+        if (!n.alert) setStatus(n, 'working');
+      } else if (m.t === 'info') {
+        if (m.cwd && m.cwd !== c.cwd && m.worktree) {
+          n.el.querySelector('.sub').textContent = shortPath(m.cwd) + `  ⎇ ${c.branch}`;
+        }
+      } else if (m.t === 'error') {
+        n.term.write(`\r\n\x1b[31mErro: ${m.d}\x1b[0m\r\n`);
+        toast(`${c.name}: ${m.d}`);
+        setStatus(n, 'dead');
+      } else if (m.t === 'exit') {
+        n.term.write(`\r\n\x1b[90m[processo encerrado — clique em ↻ para reiniciar]\x1b[0m\r\n`);
+        setStatus(n, 'dead');
+      }
+    };
+    ws.onclose = () => { if (n.ws === ws && n.status !== 'dead' && nodes.has(c.id)) setStatus(n, 'dead'); };
+  }
+
+  function closeNode(n) {
+    send(n, { t: 'kill' });
+    try { n.ws && n.ws.close(); } catch {}
+    n.term.dispose(); n.el.remove(); nodes.delete(n.cfg.id);
+    updateEmpty(); updateTitle(); persist();
+  }
+
+  function notify(n) {
+    if (document.hasFocus() && n.el.classList.contains('active')) return;
+    setAlert(n, true);
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('Orquestra', { body: `${n.cfg.name} precisa de você` });
+    }
+  }
+
+  // de tempos em tempos, quem parou de imprimir vira "parado"
+  setInterval(() => {
+    const now = Date.now();
+    for (const n of nodes.values()) {
+      if (n.status === 'working' && now - n.lastOut > IDLE_MS) setStatus(n, 'idle');
+    }
+  }, 500);
+
+  // ---------------------------------------------------------------- utilidades
+  const shortPath = (p) => (p || '').replace(defaults.home, '~');
+  const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
+  const updateEmpty = () => { document.getElementById('empty').style.display = nodes.size ? 'none' : 'grid'; };
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.style.display = 'block';
+    clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = 'none'), 5000);
+  }
+
+  // ---------------------------------------------------------------- novo agente
+  const dlg = document.getElementById('dlg');
+  const form = document.getElementById('form');
+
+  function openNewDialog() {
+    const last = [...nodes.values()].pop();
+    dlg.returnValue = '';
+    form.name.value = '';
+    form.branch.value = '';
+    form.cwd.value = last ? last.cfg.cwd : defaults.cwd;
+    form.cmd.value = recentCmds[0] || '';
+    document.getElementById('cmds').innerHTML = recentCmds.map(c => `<option value="${c.replace(/"/g, '&quot;')}">`).join('');
+    dlg.showModal();
+    form.name.focus();
+  }
+
+  dlg.addEventListener('close', () => {
+    if (dlg.returnValue !== 'ok') return;
+    const cmd = form.cmd.value.trim();
+    const branch = form.branch.value.trim();
+    if (cmd) recentCmds = [cmd, ...recentCmds.filter(c => c !== cmd)].slice(0, 8);
+
+    // posiciona o novo nó no centro da tela atual
+    const w = 720, h = 440;
+    const cx = (innerWidth / 2 - view.x) / view.s, cy = ((innerHeight + 50) / 2 - view.y) / view.s;
+    const offset = (nodes.size % 5) * 30;
+    const cfg = {
+      id: uid(),
+      name: form.name.value.trim() || branch || (cmd ? cmd.split(' ')[0] : 'terminal'),
+      cwd: form.cwd.value.trim(), cmd, branch,
+      x: Math.round(cx - w / 2 + offset), y: Math.round(cy - h / 2 + offset), w, h,
+      color: COLORS[nodes.size % COLORS.length],
+    };
+    const n = makeNode(cfg);
+    activate(n); n.term.focus();
+    updateEmpty(); persist();
+  });
+
+  // ---------------------------------------------------------------- barra e atalhos
+  document.getElementById('btnNew').onclick = openNewDialog;
+  document.getElementById('btnGrid').onclick = arrangeGrid;
+  document.getElementById('btnFit').onclick = fitAll;
+  document.getElementById('btnZoomIn').onclick = () => zoomAt(1.2, innerWidth / 2, innerHeight / 2);
+  document.getElementById('btnZoomOut').onclick = () => zoomAt(1 / 1.2, innerWidth / 2, innerHeight / 2);
+
+  window.addEventListener('keydown', (e) => {
+    const typing = e.target.closest && (e.target.closest('.xterm') || e.target.matches('input, [contenteditable="true"]'));
+    if (typing || dlg.open || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === 'n' || e.key === 'N') { e.preventDefault(); openNewDialog(); }
+    if (e.key === 'g' || e.key === 'G') arrangeGrid();
+    if (e.key === 'f' || e.key === 'F') fitAll();
+  });
+
+  // pede permissão de notificação no primeiro clique (navegadores exigem um gesto)
+  window.addEventListener('pointerdown', () => {
+    if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+  }, { once: true });
+
+  // ---------------------------------------------------------------- início
+  fetch('/api/defaults').then(r => r.json()).then((d) => {
+    defaults = d;
+    const saved = load();
+    if (saved) {
+      Object.assign(view, saved.view || {});
+      if (saved.recent && saved.recent.length) recentCmds = saved.recent;
+      (saved.nodes || []).forEach(cfg => makeNode(cfg)); // reconecta às sessões que continuam vivas
+    }
+    applyView(); updateEmpty();
+  }).catch(() => toast('Não consegui falar com o servidor. Ele está rodando?'));
+})();
+</script>
+</body>
+</html>

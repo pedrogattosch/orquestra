@@ -1,0 +1,20 @@
+{
+  "name": "orquestra",
+  "version": "0.1.0",
+  "description": "Tela infinita para visualizar e organizar vários agentes de código em terminais.",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
+    "express": "^4.21.2",
+    "node-pty": "^1.0.0",
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
