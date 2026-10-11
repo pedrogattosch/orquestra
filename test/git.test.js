@@ -1,0 +1,106 @@
+const test = require('node:test');
+const assert = require('node:assert');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { execFileSync } = require('child_process');
+const g = require('../git');
+
+Object.assign(process.env, {
+  GIT_AUTHOR_NAME: 'teste', GIT_AUTHOR_EMAIL: 'teste@exemplo.com',
+  GIT_COMMITTER_NAME: 'teste', GIT_COMMITTER_EMAIL: 'teste@exemplo.com',
+});
+
+const run = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+
+function newRepo(branch = 'main') {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'orquestra-'));
+  const root = path.join(base, 'app');
+  fs.mkdirSync(root);
+  run(root, 'init', '-q', '-b', branch);
+  fs.writeFileSync(path.join(root, 'a.txt'), 'a');
+  run(root, 'add', 'a.txt');
+  run(root, 'commit', '-q', '-m', 'inicial');
+  return root;
+}
+
+function commit(dir, file) {
+  fs.writeFileSync(path.join(dir, file), file);
+  run(dir, 'add', file);
+  run(dir, 'commit', '-q', '-m', file);
+}
+
+test('repoInfo devolve null fora de um repositório', () => {
+  assert.strictEqual(g.repoInfo(fs.mkdtempSync(path.join(os.tmpdir(), 'orquestra-'))), null);
+});
+
+test('cria worktree irmão com branch nova partindo da branch atual da pasta original', () => {
+  const root = newRepo();
+  run(root, 'checkout', '-q', '-b', 'dev');
+  commit(root, 'dev.txt');
+  const wt = g.ensureWorktree(root, 'feat/x');
+  assert.strictEqual(wt, path.join(path.dirname(root), 'app-feat-x'));
+  assert.strictEqual(run(wt, 'rev-parse', 'HEAD'), run(root, 'rev-parse', 'dev'));
+
+  const info = g.repoInfo(root);
+  assert.deepStrictEqual(info.worktrees.map((w) => w.branch), ['feat/x']);
+  assert.ok(info.branches.includes('feat/x'));
+  assert.strictEqual(info.currentBranch, 'dev');
+});
+
+test('recusa nome de branch inválido', () => {
+  assert.throws(() => g.ensureWorktree(newRepo(), 'a..b'), /inválido/);
+});
+
+test('branch sem commits próprios e sem alterações pode ser excluída', () => {
+  const root = newRepo();
+  const wt = g.ensureWorktree(root, 'tarefa');
+  assert.deepStrictEqual(g.checkDelete(wt).reasons, []);
+  g.deleteWorktree(wt);
+  assert.ok(!fs.existsSync(wt));
+  assert.ok(!g.repoInfo(root).branches.includes('tarefa'));
+});
+
+test('bloqueia exclusão com alterações não commitadas', () => {
+  const wt = g.ensureWorktree(newRepo(), 'tarefa');
+  fs.writeFileSync(path.join(wt, 'novo.txt'), 'x');
+  const r = g.checkDelete(wt);
+  assert.strictEqual(r.ok, false);
+  assert.match(r.reasons.join(), /não commitadas/);
+  assert.throws(() => g.deleteWorktree(wt));
+  assert.ok(fs.existsSync(wt));
+});
+
+test('bloqueia branch com commits sem merge e libera depois do merge', () => {
+  const root = newRepo();
+  const wt = g.ensureWorktree(root, 'tarefa');
+  commit(wt, 'b.txt');
+  assert.match(g.checkDelete(wt).reasons.join(), /sem merge na main/);
+  run(root, 'merge', '-q', '--no-ff', '-m', 'merge', 'tarefa');
+  assert.strictEqual(g.checkDelete(wt).ok, true);
+});
+
+test('usa master quando é a branch principal', () => {
+  const root = newRepo('master');
+  assert.strictEqual(g.mainBranch(root), 'master');
+  const wt = g.ensureWorktree(root, 'tarefa');
+  commit(wt, 'b.txt');
+  assert.match(g.checkDelete(wt).reasons.join(), /sem merge na master/);
+  run(root, 'merge', '-q', 'tarefa');
+  assert.strictEqual(g.checkDelete(wt).ok, true);
+});
+
+test('sem branch principal identificável, bloqueia branch com commits próprios', () => {
+  const root = newRepo('trunk');
+  assert.strictEqual(g.mainBranch(root), null);
+  const wt = g.ensureWorktree(root, 'tarefa');
+  assert.strictEqual(g.checkDelete(wt).ok, true);
+  commit(wt, 'b.txt');
+  assert.match(g.checkDelete(wt).reasons.join(), /Não consegui identificar/);
+});
+
+test('a pasta original não é tratada como worktree', () => {
+  const root = newRepo();
+  assert.strictEqual(g.worktreeOf(root), null);
+  assert.strictEqual(g.checkDelete(root).ok, false);
+});
