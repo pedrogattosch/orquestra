@@ -14,7 +14,8 @@ Object.assign(process.env, {
 const run = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 
 function newRepo(branch = 'main') {
-  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'orquestra-'));
+  // caminho completo: no Windows, a pasta temporária pode vir com nome curto (RUNNER~1), e o Git devolve o longo
+  const base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'orquestra-')));
   const root = path.join(base, 'app');
   fs.mkdirSync(root);
   run(root, 'init', '-q', '-b', branch);
