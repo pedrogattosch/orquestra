@@ -33,13 +33,13 @@ A pessoa usuária já tem skills (por exemplo, `/iniciar`) que criam branch e wo
 5. Várias sessões, exibidas em abas, cada uma com seu próprio quadro, terminais e setas, com criação, troca, renomeação e fechamento de sessões, sendo o fechamento permitido só quando a sessão não tem terminais abertos.
 6. Restauração das sessões e do layout ao abrir o aplicativo depois de ter saído dele ou de reiniciar o computador.
 7. Formulário de novo terminal com:
-   - nome do terminal, opcional;
+   - nome da worktree, preenchido com `<projeto>-<branch>` e editável, ao criar um worktree;
    - seleção da pasta do projeto, digitando o caminho ou navegando pelas pastas, sem pasta pré-preenchida;
    - seleção de worktree entre os existentes no projeto escolhido, ou criação de um novo;
    - seleção de branch entre as existentes no projeto escolhido, ou criação de uma nova, com qualquer nome válido no Git, partindo da branch atual da pasta original do projeto;
    - seleção do agente a iniciar: Claude, Codex ou nenhum.
 8. Remoção do campo de comando inicial do formulário, substituído pela seleção de agente.
-9. Geração automática de nome quando o terminal é aberto sem nome.
+9. Terminal sem nome quando é aberto sem nome.
 10. Quadro vazio em uma sessão sem terminais.
 11. Visualização simultânea dos terminais da sessão, mantendo o comportamento atual da tela infinita e dos status.
 12. Botão por terminal que abre no VS Code a pasta ou o worktree daquele terminal.
@@ -142,10 +142,12 @@ A pessoa usuária já tem skills (por exemplo, `/iniciar`) que criam branch e wo
 - A pessoa usuária pode:
   - abrir o terminal na pasta principal do projeto;
   - abrir o terminal em um worktree existente;
-  - criar um worktree novo a partir de uma branch existente ou de uma branch nova, com qualquer nome válido no Git.
+  - criar um worktree novo com uma branch nova, com qualquer nome válido no Git;
+  - criar um worktree novo a partir de uma branch existente que não esteja aberta em outro worktree.
 - Uma branch nova parte da branch atual da pasta original do projeto. Se a pasta original estiver na `main`, a branch nova parte da `main`; se estiver em outra branch, parte dela.
 - Se a pasta não for repositório Git, as opções de worktree e branch ficam indisponíveis e o terminal abre na pasta.
-- O nome do terminal é opcional. Se ficar vazio, o Orquestra gera um nome automaticamente.
+- O formulário não pede nome do terminal: ele abre sem nome e pode ser nomeado depois, com duplo clique no cabeçalho.
+- Ao criar um worktree, o nome dele vem preenchido com `<projeto>-<branch>` e pode ser editado. Um nome de pasta que já existe é recusado.
 - Se a criação do worktree falhar, o terminal não é aberto e a mensagem de erro do Git é exibida.
 - A pessoa usuária escolhe o agente entre **Claude**, **Codex** ou **nenhum**.
 - Com Claude ou Codex, o terminal abre na pasta escolhida e já inicia o agente. Com nenhum, abre só o shell.
@@ -154,7 +156,8 @@ A pessoa usuária já tem skills (por exemplo, `/iniciar`) que criam branch e wo
 ### Acompanhamento
 
 - Os terminais continuam exibindo nome, caminho, branch e status (trabalhando, parado, precisa de você).
-- O botão **Grade** e a tecla `G` deixam de existir. Os demais controles da tela (mover, zoom, **Ver todos**, focar, reiniciar) permanecem e atuam na sessão aberta.
+- O botão **Grade** e a tecla `G` deixam de existir. Os demais controles da tela (mover, zoom, **Ver todos**) permanecem e atuam na sessão aberta.
+- Cada terminal tem os botões **Expandir** (tela toda), **Abrir** (VS Code) e **Finalizar**. Um terminal cujo processo terminou reinicia ao apertar Enter dentro dele.
 
 ### Abrir no VS Code
 
@@ -186,7 +189,7 @@ A pessoa usuária já tem skills (por exemplo, `/iniciar`) que criam branch e wo
 
 - Qualquer terminal pode pedir ao Orquestra a abertura de um novo terminal, informando pelo menos a pasta ou o worktree em que ele deve abrir e, opcionalmente, o nome e o agente, entre as mesmas opções do formulário.
 - Se o agente não for informado, o terminal abre só com o shell.
-- Se o nome não for informado, o Orquestra gera um nome automaticamente.
+- Se o nome não for informado, o terminal fica sem nome.
 - O novo terminal aparece na mesma sessão do terminal que pediu a abertura, como qualquer outro, com nome, caminho, branch e status, e pode ser acompanhado, aberto no VS Code e finalizado da mesma forma.
 - O Orquestra cria automaticamente uma seta de **comando** do terminal que pediu a abertura para o terminal aberto.
 - Esse é o recurso que a pessoa usuária usa no maestro: nele, roda um agente com suas skills para criar branch e worktree de uma tarefa, abrir o terminal dessa tarefa e, depois do merge, limpar branches e worktrees.
@@ -269,7 +272,8 @@ A pessoa usuária já tem skills (por exemplo, `/iniciar`) que criam branch e wo
 - Dado que a pessoa usuária informa um nome de branch nova qualquer, válido no Git, quando abre o terminal com criação de worktree, então o worktree e a branch são criados e o terminal inicia dentro do worktree.
 - Dado uma branch nova criada pelo formulário, quando o worktree é criado, então a branch parte do commit atual da branch em que está a pasta original do projeto.
 - Dado que a criação do worktree falha, quando a pessoa usuária tenta abrir o terminal, então nenhum terminal é aberto e a mensagem de erro é exibida.
-- Dado que o nome do terminal ficou vazio, quando o terminal é aberto pelo formulário ou por outro terminal, então ele aparece com um nome gerado automaticamente.
+- Dado que o nome do terminal ficou vazio, quando o terminal é aberto pelo formulário ou por outro terminal, então ele aparece sem nome, com caminho, branch e status.
+- Dado a opção de worktree com branch nova, quando a pessoa usuária informa o nome de uma branch que já existe, então nenhum worktree é criado e o Orquestra informa que a branch já existe.
 
 ### Tela e VS Code
 
