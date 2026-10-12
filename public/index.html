@@ -865,6 +865,26 @@
     term.onBell(() => notify(n)); // agentes podem tocar o "sino" quando precisam de você
     fixMouseForZoom(term);
 
+    // Copiar e colar como num editor. Sozinho, o xterm transforma Ctrl+C e Ctrl+V em ^C e ^V e nunca
+    // copia nem cola. Ctrl+C copia quando há seleção (sem seleção, continua interrompendo); Ctrl+V
+    // deixa o navegador disparar o "paste", tratado pelo xterm (texto) ou abaixo (imagem).
+    // Ctrl+Shift+C e Ctrl+Shift+V também valem, como nos terminais do Linux.
+    term.attachCustomKeyEventHandler((e) => {
+      if (!e.ctrlKey || e.altKey || e.metaKey) return true;
+      const k = e.key.toLowerCase();
+      if (k === 'v') return false;
+      if (k === 'c' && (e.shiftKey || term.hasSelection())) {
+        if (e.type === 'keydown') {
+          e.preventDefault();
+          const text = term.getSelection();
+          if (text) navigator.clipboard.writeText(text).catch(() => toast('Não consegui copiar o texto.'));
+          if (!e.shiftKey) term.clearSelection();
+        }
+        return false;
+      }
+      return true;
+    });
+
     // Ctrl+V com um print: o xterm só cola texto. A imagem vira um arquivo temporário e o caminho
     // é colado no terminal, como ao arrastar uma imagem; o Claude Code o transforma em [Image #1].
     el.addEventListener('paste', (e) => {
