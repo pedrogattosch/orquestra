@@ -2,7 +2,7 @@
   "name": "orquestra",
   "productName": "Orquestra",
   "desktopName": "orquestra.desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Tela infinita para visualizar e organizar vários agentes de código em terminais.",
   "homepage": "https://github.com/pedrogattosch/orquestra",
   "main": "electron/main.js",

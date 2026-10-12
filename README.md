@@ -6,8 +6,8 @@ Aplicativo desktop com uma tela infinita onde cada terminal é um bloco que voc�
 
 ## Instalar
 
-- **Ubuntu:** `sudo apt install ./orquestra_0.1.0_amd64.deb`. O Orquestra aparece no menu de aplicativos e pode ser fixado na dock. Para desinstalar: `sudo apt remove orquestra`.
-- **Windows:** rode o `Orquestra Setup 0.1.0.exe`. Para desinstalar, use as configurações.
+- **Ubuntu:** `sudo apt install ./orquestra_0.1.1_amd64.deb`. O Orquestra aparece no menu de aplicativos e pode ser fixado na dock. Para desinstalar: `sudo apt remove orquestra`.
+- **Windows:** rode o `Orquestra Setup 0.1.1.exe`. Para desinstalar, use as configurações.
 
 Precisa ter Git, VS Code (comando `code`) e os agentes que você quiser usar (`claude`, `codex`). Ao desinstalar, as sessões salvas são apagada,os projetos, worktrees e branches não são tocados.
 

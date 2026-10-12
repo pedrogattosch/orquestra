@@ -18,7 +18,7 @@ npm run dist:linux # gera dist/orquestra_<versão>_amd64.deb
 npm run dist:win   # gera dist/Orquestra Setup <versão>.exe (rodar no Windows)
 ```
 
-O `npm start` não cria atalho no sistema: a janela abre, mas o Orquestra não fica no menu de aplicativos nem pode ser fixado na dock. Para usar como aplicativo, gere o `.deb` e instale com `sudo apt install ./dist/orquestra_0.1.0_amd64.deb`.
+O `npm start` não cria atalho no sistema: a janela abre, mas o Orquestra não fica no menu de aplicativos nem pode ser fixado na dock. Para usar como aplicativo, gere o `.deb` e instale com `sudo apt install ./dist/orquestra_0.1.1_amd64.deb`.
 
 Só roda um Orquestra por vez (instalado ou pelo `npm start`): abrir um segundo apenas mostra a janela do que já está aberto.
 
