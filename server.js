@@ -15,6 +15,8 @@ const git = require('./git');
 const MAX_BUFFER = 200 * 1024; // quanto de saída guardar para reexibir ao reconectar
 const AGENTS = { claude: 'claude', codex: 'codex', gemini: 'gemini', antigravity: 'antigravity' };
 const ARROW_TYPES = ['comando', 'dependencia'];
+const NOTE_COLORS = ['tinta', 'azul', 'vermelho', 'verde', 'laranja'];
+const NOTE_SIZE = { min: 14, max: 72, default: 26 };
 const COLORS = ['#7c9cff', '#4ade80', '#f5b13d', '#f472b6', '#38bdf8', '#a78bfa', '#fb923c', '#2dd4bf'];
 
 const uid = () => crypto.randomUUID();
@@ -81,7 +83,7 @@ function start({ dataDir, binDir, nodePath, port = 0 }) {
     const used = new Set(state.sessions.map((s) => s.name));
     let n = state.sessions.length + 1;
     while (!name && used.has(`Sessão ${n}`)) n++;
-    const s = { id: uid(), name: name || `Sessão ${n}`, view: { x: 0, y: 0, s: 1 }, terminals: [], arrows: [] };
+    const s = { id: uid(), name: name || `Sessão ${n}`, view: { x: 0, y: 0, s: 1 }, terminals: [], arrows: [], notes: [] };
     state.sessions.push(s);
     return s;
   }
@@ -175,7 +177,9 @@ function start({ dataDir, binDir, nodePath, port = 0 }) {
     let cwd = dir;
     if (body.worktreeBranch) {
       try {
-        cwd = git.ensureWorktree(dir, String(body.worktreeBranch).trim());
+        const newBranch = typeof body.newBranch === 'boolean' ? body.newBranch : undefined;
+        const folder = String(body.worktreeName || '').trim() || undefined;
+        cwd = git.ensureWorktree(dir, String(body.worktreeBranch).trim(), { newBranch, folder });
       } catch (err) {
         throw new HttpError(400, (err.stderr && String(err.stderr).trim()) || err.message);
       }
@@ -192,9 +196,10 @@ function start({ dataDir, binDir, nodePath, port = 0 }) {
       y = p.y;
       while (session.terminals.some(hits)) y += h + gap;
     }
+    const name = String(body.name || '').trim();
     const cfg = {
       id: uid(),
-      name: uniqueName(session, String(body.name || '').trim() || `${agent || 'terminal'} · ${branch || path.basename(cwd)}`),
+      name: name ? uniqueName(session, name) : '',
       cwd,
       branch,
       agent,
@@ -216,9 +221,10 @@ function start({ dataDir, binDir, nodePath, port = 0 }) {
     for (const session of state.sessions) {
       session.terminals = session.terminals.filter((t) => {
         if (isDir(t.cwd)) return true;
-        warnings.push(`"${t.name}" não foi restaurado: a pasta ${t.cwd} não existe mais.`);
+        warnings.push(`"${t.name || t.cwd}" não foi restaurado: a pasta ${t.cwd} não existe mais.`);
         return false;
       });
+      session.notes = (session.notes || []).map(upgradeNote);
       const ids = new Set(session.terminals.map((t) => t.id));
       session.arrows = session.arrows.filter((a) => ids.has(a.from) && ids.has(a.to));
       for (const t of session.terminals) spawnTerminal(t);
@@ -255,8 +261,9 @@ function start({ dataDir, binDir, nodePath, port = 0 }) {
   }
 
   app.use((req, res, next) => (requestAllowed(req) ? next() : res.status(403).end()));
-  app.use(express.json());
+  app.use(express.json({ limit: '5mb' })); // anotações com textos grandes colados
   app.use(express.static(path.join(__dirname, 'public')));
+  app.get('/icon.png', (req, res) => res.sendFile(path.join(__dirname, 'build', 'icon.png')));
   app.use('/vendor/xterm', express.static(path.dirname(require.resolve('@xterm/xterm/package.json'))));
   app.use('/vendor/addon-fit', express.static(path.dirname(require.resolve('@xterm/addon-fit/package.json'))));
 
@@ -346,7 +353,7 @@ function start({ dataDir, binDir, nodePath, port = 0 }) {
       const check = git.checkDelete(term.cwd);
       const others = state.sessions.flatMap((s) => s.terminals)
         .filter((t) => t !== term && check.worktree && isInside(t.cwd, check.worktree.path));
-      if (others.length) check.reasons.push(`Outro terminal ainda está aberto neste worktree: ${others.map((t) => t.name).join(', ')}.`);
+      if (others.length) check.reasons.push(`Outro terminal ainda está aberto neste worktree: ${others.map((t) => t.name || t.cwd).join(', ')}.`);
       if (check.reasons.length) throw new HttpError(409, check.reasons.join(' '), { reasons: check.reasons });
     }
     await killTerminal(term.id);
@@ -391,6 +398,66 @@ function start({ dataDir, binDir, nodePath, port = 0 }) {
   app.delete('/api/arrows/:id', route((req) => {
     const { session, arrow } = findArrow(req.params.id);
     session.arrows = session.arrows.filter((a) => a !== arrow);
+    changed();
+  }));
+
+  // ---------------------------------------------------------------- anotações
+  function findNote(id) {
+    for (const session of state.sessions) {
+      const note = session.notes.find((n) => n.id === id);
+      if (note) return { session, note };
+    }
+    throw new HttpError(404, 'Anotação não encontrada.');
+  }
+
+  const noteSize = (v, fallback) => (Number.isFinite(v) ? Math.min(NOTE_SIZE.max, Math.max(NOTE_SIZE.min, Math.round(v))) : fallback);
+  const noteColor = (v, fallback) => (NOTE_COLORS.includes(v) ? v : fallback);
+
+  // size e color são o estilo de quem começa a escrever; cada trecho (run) do texto tem o seu
+  function setNoteStyle(note, b) {
+    note.size = noteSize(b.size, note.size);
+    note.color = noteColor(b.color, note.color);
+    if (Array.isArray(b.runs)) {
+      note.runs = b.runs.slice(0, 2000)
+        .filter((r) => r && typeof r.t === 'string' && r.t)
+        .map((r) => ({ t: r.t.slice(0, 20000), size: noteSize(r.size, note.size), color: noteColor(r.color, note.color) }));
+    }
+  }
+
+  // anotações salvas antes dos trechos guardavam só o texto, com um estilo para tudo
+  function upgradeNote(note) {
+    if (note.runs) return note;
+    const { text, w, h, ...rest } = note;
+    return { ...rest, runs: text ? [{ t: text, size: note.size || NOTE_SIZE.default, color: note.color || NOTE_COLORS[0] }] : [] };
+  }
+
+  app.post('/api/notes', route((req) => {
+    const session = getSession(req.body.sessionId || state.activeSession);
+    const note = {
+      id: uid(),
+      x: Math.round(Number(req.body.x) || 0),
+      y: Math.round(Number(req.body.y) || 0),
+      runs: [],
+      size: NOTE_SIZE.default,
+      color: NOTE_COLORS[0],
+    };
+    setNoteStyle(note, req.body);
+    session.notes.push(note);
+    changed();
+    return note;
+  }));
+
+  app.patch('/api/notes/:id', route((req) => {
+    const { note } = findNote(req.params.id);
+    const b = req.body;
+    for (const k of ['x', 'y']) if (Number.isFinite(b[k])) note[k] = Math.round(b[k]);
+    setNoteStyle(note, b);
+    changed();
+  }));
+
+  app.delete('/api/notes/:id', route((req) => {
+    const { session, note } = findNote(req.params.id);
+    session.notes = session.notes.filter((n) => n !== note);
     changed();
   }));
 

@@ -14,7 +14,7 @@
   })();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="/vendor/xterm/css/xterm.css">
 <style>
   /* ---------- tokens ---------- */
@@ -22,6 +22,7 @@
     --top: 44px;
     --sans: 'Geist', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
     --mono: 'Geist Mono', ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+    --hand: 'Caveat', "Segoe Print", "Comic Sans MS", cursive;
   }
   [data-theme="light"] {
     color-scheme: light;
@@ -98,9 +99,7 @@
   #top { position: fixed; top: 0; left: 0; right: 0; height: var(--top); z-index: 1000; display: flex; align-items: center;
     gap: 16px; padding: 0 12px 0 16px; background: var(--bg); border-bottom: 1px solid var(--bar-line); }
   .brand { display: flex; align-items: center; gap: 8px; flex: none; font-weight: 600; letter-spacing: -0.01em; user-select: none; }
-  .logo { width: 20px; height: 20px; border-radius: 6px; background: var(--text); display: flex; align-items: flex-end;
-    justify-content: center; gap: 2px; padding-bottom: 5px; }
-  .logo span { width: 2px; border-radius: 1px; background: var(--bg); }
+  .logo { width: 22px; height: 22px; display: block; }
   .vsep { width: 1px; height: 16px; background: var(--sep); flex: none; }
   #tabs { display: flex; align-items: center; gap: 2px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
   .tab { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 4px 0 10px; border: 1px solid transparent;
@@ -162,12 +161,18 @@
   @keyframes pulse { 50% { opacity: .45; } }
   .title { display: flex; flex-direction: column; min-width: 0; flex: 1; }
   .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; outline: none; }
-  .name[contenteditable="true"] { background: var(--hover); border-radius: 4px; padding: 0 4px; cursor: text; }
+  .name[contenteditable="true"] { background: var(--hover); border-radius: 4px; padding: 0 4px; cursor: text; min-height: 1.4em; }
   .sub { font-family: var(--mono); color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .state { color: var(--muted); font-size: 11px; white-space: nowrap; }
   .state.working { color: var(--ok-text); }
   .state.alert { color: var(--alert-text); font-weight: 500; }
   .head .acts { display: flex; gap: 2px; }
+  .head .acts .ghost { padding: 0 8px; }
+  /* expandido: o terminal sai do quadro (que tem transform) e cobre a área abaixo da barra */
+  .node.expanded { position: fixed; left: 0 !important; top: var(--top) !important; width: 100% !important;
+    height: calc(100% - var(--top)) !important; z-index: 950 !important; border-radius: 0; border-width: 1px 0 0; }
+  .node.expanded .head { cursor: default; }
+  .node.expanded .grip { display: none; }
   .body { flex: 1; min-height: 0; padding: 10px 6px 6px 14px; cursor: auto; }
   .body .xterm { height: 100%; }
   .xterm-viewport::-webkit-scrollbar { width: 8px; }
@@ -176,6 +181,17 @@
   .grip { position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize; }
   .grip::after { content: ""; position: absolute; right: 4px; bottom: 4px; width: 7px; height: 7px;
     border-right: 1.5px solid var(--line); border-bottom: 1.5px solid var(--line); border-bottom-right-radius: 3px; }
+
+  /* ---------- anotações ---------- */
+  .note { position: absolute; z-index: 1; width: max-content; min-width: 140px; border: 1px dashed transparent; border-radius: 8px; }
+  .note:hover, .note:focus-within { border-color: var(--line); }
+  .note-bar { height: 22px; flex: none; display: flex; justify-content: flex-end; cursor: move; visibility: hidden; }
+  .note:hover .note-bar, .note:focus-within .note-bar { visibility: visible; }
+  .note-bar .icon-btn { width: 22px; height: 22px; }
+  .note-bar .icon-btn svg.i { width: 12px; height: 12px; }
+  .note-text { min-height: 1.2em; padding: 0 12px 10px; outline: none; white-space: pre-wrap; font-family: var(--hand);
+    line-height: 1.15; cursor: text; }
+  .note-text:empty::before { content: 'Escreva aqui…'; color: var(--muted); opacity: .7; }
 
   /* ---------- controles flutuantes ---------- */
   .float { position: fixed; z-index: 900; display: flex; align-items: center; gap: 4px; padding: 5px;
@@ -186,8 +202,6 @@
   .dock-btn { height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 12px 0 10px; border: 0; border-radius: 8px;
     background: transparent; color: var(--soft); white-space: nowrap; }
   .dock-btn:hover { background: var(--hover); }
-  .dock-btn.primary { background: var(--primary-bg); color: var(--primary-fg); font-weight: 500; }
-  .dock-btn.primary:hover { filter: brightness(1.12); background: var(--primary-bg); }
   .dock-btn kbd { margin-left: 2px; }
   .zbtn { width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 8px; padding: 0;
     background: transparent; color: var(--soft); }
@@ -204,7 +218,7 @@
   /* ---------- diálogos ---------- */
   dialog { background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 14px;
     padding: 0; width: min(480px, calc(100vw - 32px)); box-shadow: var(--shadow-dlg); }
-  dialog.wide { width: min(500px, calc(100vw - 32px)); }
+  #dlgFinish { width: min(680px, calc(100vw - 32px)); }
   dialog::backdrop { background: var(--scrim); }
   .dlg-head { padding: 20px 22px 0; display: flex; flex-direction: column; gap: 4px; }
   .dlg-head .row { display: flex; align-items: baseline; justify-content: space-between; }
@@ -256,31 +270,21 @@
     font-family: var(--mono); font-size: 11.5px; font-weight: 500; }
   .acc-trigger .mono-ico { width: 28px; height: 28px; border-radius: 8px; font-size: 12px; }
 
-  /* nova conexão */
-  .types { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .type-card { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 14px; border: 1px solid var(--line);
-    border-radius: 10px; background: var(--input); color: var(--text); text-align: left; }
-  .type-card b { font-weight: 500; }
-  .type-card span { font-size: 12px; color: var(--muted); line-height: 1.45; }
-  .type-card[data-type="comando"] svg { stroke: var(--cmd); }
-  .type-card[data-type="dependencia"] svg { stroke: var(--dep); }
-  .type-card[data-type="comando"][aria-pressed="true"] { background: var(--cmd-tint); border-color: var(--cmd-line); box-shadow: 0 0 0 3px var(--accent-ring); }
-  .type-card[data-type="dependencia"][aria-pressed="true"] { background: var(--dep-tint); border-color: var(--dep-line);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--dep) 14%, transparent); }
-  .pair { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; align-items: end; }
-  .pair .icon-btn { width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 8px; background: var(--input); color: var(--soft); }
-  .preview { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 22px 16px 16px; border: 1px solid var(--line-2);
-    border-radius: 10px; background: var(--field-alt); background-image: radial-gradient(var(--dot) 1px, transparent 1.2px); background-size: 14px 14px; }
-  .preview .chain { display: flex; align-items: center; max-width: 100%; }
-  .chip { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; background: var(--card); border: 1px solid var(--line);
-    border-radius: 8px; font-weight: 500; max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .chip i { width: 6px; height: 6px; border-radius: 50%; background: var(--dead); flex: none; }
-  .chip i.working { background: var(--ok); } .chip i.idle { background: var(--idle); } .chip i.alert { background: var(--alert); }
-  #prevArrow { flex: none; }
-  #prevArrow path { stroke: var(--cmd); }
-  #prevArrow.dependencia path { stroke: var(--dep); }
-  #prevArrow.dependencia .line { stroke-dasharray: 5 4; }
-  #prevText { font-size: 12px; color: var(--muted); }
+  /* ---------- modos: lápis e conectar ---------- */
+  #viewport.mode-note { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M3 21l1.5-5L16 4.5l3.5 3.5L8 19.5z' fill='white' stroke='black' stroke-width='1.5' stroke-linejoin='round'/%3E%3Cpath d='M13.5 7l3.5 3.5' stroke='black' stroke-width='1.5'/%3E%3C/svg%3E") 3 21, crosshair; }
+  #viewport.mode-connect .node, #viewport.mode-connect .node * { cursor: crosshair !important; }
+  .node.picked { border-color: var(--cmd-line); box-shadow: 0 0 0 3px var(--accent-ring), var(--shadow); }
+  .dock-btn[aria-pressed="true"] { background: var(--hover); color: var(--text); }
+  .toolbar { left: 50%; bottom: 72px; transform: translateX(-50%); gap: 6px; padding: 5px 8px; }
+  .toolbar .tip { font-size: 12px; color: var(--muted); padding: 0 6px; white-space: nowrap; }
+  .toolbar .opt { height: 28px; min-width: 28px; display: grid; place-items: center; padding: 0 8px; border: 0; border-radius: 7px;
+    background: transparent; color: var(--soft); white-space: nowrap; }
+  .toolbar .opt:hover { background: var(--hover); }
+  .toolbar .opt[aria-pressed="true"] { background: var(--seg-on); color: var(--text); box-shadow: 0 0 0 1px var(--line); }
+  .toolbar .opt.size { font-family: var(--hand); line-height: 1; }
+  .toolbar .swatch { width: 18px; height: 18px; border-radius: 50%; display: block; }
+  .toolbar .opt.color { padding: 0 5px; }
+  .toolbar .opt.color[aria-pressed="true"] .swatch { box-shadow: 0 0 0 2px var(--card), 0 0 0 3.5px currentColor; }
 
   #empty { position: fixed; top: var(--top); left: 0; right: 0; bottom: 0; display: grid; place-items: center; pointer-events: none;
     color: var(--muted); text-align: center; line-height: 1.6; }
@@ -310,7 +314,7 @@
 
 <header id="top">
   <div class="brand">
-    <span class="logo" aria-hidden="true"><span style="height:5px"></span><span style="height:9px"></span><span style="height:7px"></span></span>
+    <img class="logo" src="/icon.png" alt="">
     Orquestra
   </div>
   <span class="vsep" aria-hidden="true"></span>
@@ -344,15 +348,37 @@
 </div>
 
 <div id="dock" class="float" role="toolbar" aria-label="Ferramentas">
-  <button id="btnNew" class="dock-btn primary" title="Novo terminal (N)">
+  <button id="btnNew" class="dock-btn" title="Novo terminal (N)">
     <svg class="i" viewBox="0 0 16 16" style="stroke-width:1.6"><path d="M8 3v10M3 8h10"/></svg>
     Terminal <kbd>N</kbd>
   </button>
   <span class="sep" aria-hidden="true"></span>
-  <button id="btnConnect" class="dock-btn" title="Nova conexão entre terminais (C)">
+  <button id="btnConnect" class="dock-btn" aria-pressed="false" title="Nova conexão (C)">
     <svg class="i" viewBox="0 0 16 16" style="width:16px;height:16px"><rect x="1.5" y="9.5" width="5" height="5" rx="1.2"/><rect x="9.5" y="1.5" width="5" height="5" rx="1.2"/><path d="M6.5 12c3 0 3-8 3-8" style="stroke:var(--cmd)"/></svg>
-    Nova conexão <kbd>C</kbd>
+    Conexão <kbd>C</kbd>
   </button>
+  <span class="sep" aria-hidden="true"></span>
+  <button id="btnNote" class="dock-btn" aria-pressed="false" title="Nova anotação (A)">
+    <svg class="i" viewBox="0 0 16 16" style="width:16px;height:16px"><path d="M10.5 2.5l3 3L6 13H3v-3z"/></svg>
+    Anotação <kbd>A</kbd>
+  </button>
+</div>
+
+<div id="noteBar" class="float toolbar" role="toolbar" aria-label="Estilo da anotação" hidden>
+  <div id="noteSizes" style="display:flex;gap:2px"></div>
+  <span class="sep" aria-hidden="true"></span>
+  <div id="noteColors" style="display:flex;gap:2px"></div>
+</div>
+
+<div id="connBar" class="float toolbar" role="toolbar" aria-label="Nova conexão (C)" hidden>
+  <button class="opt" data-type="comando" title="Um terminal dá as ordens, o outro executa">
+    <span style="display:flex;align-items:center;gap:6px"><svg class="i" viewBox="0 0 16 16" style="width:16px;height:16px;stroke:var(--cmd)"><path d="M2 8h11M9 4l4 4-4 4"/></svg>Comando</span>
+  </button>
+  <button class="opt" data-type="dependencia" title="Um terminal espera o outro terminar">
+    <span style="display:flex;align-items:center;gap:6px"><svg class="i" viewBox="0 0 16 16" style="width:16px;height:16px;stroke:var(--dep)"><path d="M2 8h11" stroke-dasharray="3 2.5"/><path d="M9 4l4 4-4 4"/></svg>Dependência</span>
+  </button>
+  <span class="sep" aria-hidden="true"></span>
+  <span class="tip" id="connTip"></span>
 </div>
 
 <div id="zoom" class="float">
@@ -387,9 +413,6 @@
   <form id="form" autocomplete="off">
     <div class="dlg-head"><div class="row"><h2 id="newTitle">Novo terminal</h2><kbd>N</kbd></div></div>
     <div class="dlg-body">
-      <label class="f">Nome
-        <input name="name" placeholder="opcional — o Orquestra cria um">
-      </label>
       <label class="f">Pasta do projeto
         <div class="row">
           <input name="dir" class="mono" required placeholder="digite o caminho ou clique em Procurar">
@@ -399,9 +422,14 @@
       <label class="f">Onde abrir
         <select name="where" disabled></select>
       </label>
-      <label class="f" id="branchRow" hidden>Branch
-        <input name="branch" class="mono" list="branches" placeholder="escolha uma existente ou digite um nome novo">
-        <datalist id="branches"></datalist>
+      <label class="f" id="branchRow" hidden>Nome da branch
+        <input name="branch" class="mono" placeholder="nome da branch, ex.: feat/minha-tarefa">
+      </label>
+      <label class="f" id="branchPickRow" hidden>Branch existente
+        <select name="existingBranch"></select>
+      </label>
+      <label class="f" id="wtNameRow" hidden>Nome da worktree
+        <input name="worktreeName" class="mono" placeholder="nome da pasta, ao lado do projeto">
       </label>
       <div class="hint" id="gitHint"></div>
       <fieldset class="f">
@@ -421,52 +449,6 @@
     <div class="dlg-foot">
       <button type="button" class="btn" id="btnCancelNew">Cancelar</button>
       <button type="submit" class="btn primary" id="btnOpen">Abrir</button>
-    </div>
-  </form>
-</dialog>
-
-<!-- nova conexão -->
-<dialog id="dlgConn" class="wide" aria-labelledby="connTitle">
-  <form id="connForm" autocomplete="off">
-    <div class="dlg-head">
-      <div class="row"><h2 id="connTitle">Nova conexão</h2><kbd>C</kbd></div>
-      <p>Ligue dois terminais desta sessão.</p>
-    </div>
-    <div class="dlg-body">
-      <fieldset class="f">
-        <legend>Tipo</legend>
-        <div class="types">
-          <button type="button" class="type-card" data-type="comando" aria-pressed="true">
-            <svg viewBox="0 0 48 12" width="48" height="12" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6h44"/><path d="M41 2l4 4-4 4"/></svg>
-            <b>Comando</b><span>Um terminal dá as ordens, o outro executa.</span>
-          </button>
-          <button type="button" class="type-card" data-type="dependencia" aria-pressed="false">
-            <svg viewBox="0 0 48 12" width="48" height="12" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6h44" stroke-dasharray="4 3"/><path d="M41 2l4 4-4 4"/></svg>
-            <b>Dependência</b><span>Um terminal espera o outro terminar.</span>
-          </button>
-        </div>
-      </fieldset>
-      <div class="pair">
-        <label class="f"><span id="fromLabel">Quem comanda</span><select id="connFrom"></select></label>
-        <button type="button" class="icon-btn" id="btnSwap" title="Inverter direção" aria-label="Inverter direção">
-          <svg class="i" viewBox="0 0 16 16"><path d="M2 5h11M10 2l3 3-3 3M14 11H3M6 8l-3 3 3 3"/></svg>
-        </button>
-        <label class="f"><span id="toLabel">Quem é comandado</span><select id="connTo"></select></label>
-      </div>
-      <div class="preview" aria-hidden="true">
-        <div class="chain">
-          <span class="chip"><i id="prevFromDot"></i><span id="prevFrom"></span></span>
-          <svg id="prevArrow" width="88" height="16" viewBox="0 0 88 16" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path class="line" d="M4 8h78"/><path d="M78 4l4 4-4 4"/></svg>
-          <span class="chip"><i id="prevToDot"></i><span id="prevTo"></span></span>
-        </div>
-      </div>
-      <div id="prevText" style="text-align:center;margin-top:-6px"></div>
-      <div class="err" id="connErr"></div>
-    </div>
-    <div class="dlg-foot">
-      <span class="note">Clique numa conexão na tela para mudar o tipo ou remover.</span>
-      <button type="button" class="btn" id="btnCancelConn">Cancelar</button>
-      <button type="submit" class="btn primary" id="btnCreateConn">Criar conexão</button>
     </div>
   </form>
 </dialog>
@@ -504,12 +486,13 @@
   let defaults = { home: '' };
   let topZ = 1;
   let pendingFocus = null;
+  let pendingNote = null;
 
   const ICON = (d, extra = '') => `<svg class="i" viewBox="0 0 16 16"${extra}>${d}</svg>`;
   const ICONS = {
     vscode: ICON('<path d="M6 4L2 8l4 4M10 4l4 4-4 4"/>'),
-    focus: ICON('<path d="M10 2h4v4M6 14H2v-4M14 2L9.5 6.5M2 14l4.5-4.5"/>'),
-    restart: ICON('<path d="M13.5 8A5.5 5.5 0 1 1 11.9 4.1M13.5 2v3h-3"/>'),
+    expand: ICON('<path d="M10 2h4v4M6 14H2v-4M14 2L9.5 6.5M2 14l4.5-4.5"/>'),
+    collapse: ICON('<path d="M14 6h-4V2M2 10h4v4M10 6l4.5-4.5M6 10l-4.5 4.5"/>'),
     close: ICON('<path d="M4 4l8 8M12 4l-8 8"/>'),
     check: ICON('<path d="M3 8.5l3 3 7-7"/>', ' style="stroke-width:1.8"'),
   };
@@ -667,13 +650,18 @@
     tab.innerHTML = `<span class="tname"></span><span class="adot" title="Um terminal desta sessão precisa de você"></span><button class="tclose" title="Fechar sessão" aria-label="Fechar sessão">${ICONS.close}</button>`;
     tabsEl.insertBefore(tab, $('#btnAddSession'));
 
-    const s = { id: data.id, name: data.name, view: { ...data.view }, arrows: data.arrows, world, svg, tab };
+    const s = { id: data.id, name: data.name, view: { ...data.view }, arrows: data.arrows, notes: new Map(), world, svg, tab };
     sessions.set(s.id, s);
 
     const nameEl = tab.querySelector('.tname');
-    tab.addEventListener('click', (e) => { if (!e.target.closest('.tclose') && !nameEl.isContentEditable) switchTo(s.id); });
-    nameEl.addEventListener('dblclick', () => startRename(nameEl, (name) => api('PATCH', `/api/sessions/${s.id}`, { name })));
+    tab.title = 'Clique duplo para renomear';
+    tab.addEventListener('click', (e) => { if (!e.target.closest('button') && !nameEl.isContentEditable) switchTo(s.id); });
+    tab.addEventListener('dblclick', (e) => {
+      if (!e.target.closest('button')) startRename(nameEl, (name) => api('PATCH', `/api/sessions/${s.id}`, { name }));
+    });
     tab.querySelector('.tclose').addEventListener('click', () => {
+      const k = s.notes.size;
+      if (k && !confirm(`Fechar a sessão "${s.name}" apaga ${k === 1 ? 'a anotação dela' : `as ${k} anotações dela`}. Continuar?`)) return;
       api('DELETE', `/api/sessions/${s.id}`).catch((err) => toast(err.message));
     });
     return s;
@@ -681,7 +669,9 @@
 
   function switchTo(id, remember = true) {
     if (!sessions.has(id)) return;
+    for (const n of nodes.values()) if (n.expanded && n.session.id !== id) setExpanded(n, false);
     active = id;
+    if (mode) setMode(null);
     for (const s of sessions.values()) {
       s.world.classList.toggle('active', s.id === id);
       s.tab.classList.toggle('active', s.id === id);
@@ -729,7 +719,6 @@
       s.arrows = data.arrows;
       const nameEl = s.tab.querySelector('.tname');
       if (!nameEl.isContentEditable) nameEl.textContent = data.name;
-      tabsEl.insertBefore(s.tab, $('#btnAddSession'));
       for (const cfg of data.terminals) {
         termIds.add(cfg.id);
         const n = nodes.get(cfg.id);
@@ -742,6 +731,7 @@
       }
     }
     for (const n of [...nodes.values()]) if (!termIds.has(n.cfg.id)) disposeNode(n);
+    for (const data of st.sessions) renderNotes(sessions.get(data.id), data.notes || []);
     if (!active || !sessions.has(active)) switchTo(st.activeSession, false);
     for (const s of sessions.values()) drawArrows(s);
     updateTabs(); updateEmpty();
@@ -750,6 +740,8 @@
   // ---------------------------------------------------------------- nós
   const AGENT_LABEL = { claude: 'claude', codex: 'codex', gemini: 'gemini', antigravity: 'antigravity' };
   const subtitle = (cfg) => [shortPath(cfg.cwd), cfg.branch, AGENT_LABEL[cfg.agent] || 'terminal'].filter(Boolean).join(' · ');
+  // terminal sem nome é identificado pelo caminho onde for preciso citá-lo
+  const label = (cfg) => cfg.name || subtitle(cfg);
 
   function place(n) {
     const { x, y, w, h } = n.cfg;
@@ -790,6 +782,7 @@
   }
 
   function startRename(el, save) {
+    if (el.isContentEditable) return;
     const old = el.textContent;
     el.contentEditable = 'true'; el.focus();
     document.getSelection().selectAllChildren(el);
@@ -816,10 +809,9 @@
         <div class="title"><span class="name"></span><span class="sub"></span></div>
         <span class="state"></span>
         <div class="acts">
-          <button class="icon-btn" data-a="vscode" title="Abrir a pasta no VS Code" aria-label="Abrir a pasta no VS Code">${ICONS.vscode}</button>
-          <button class="icon-btn" data-a="focus" title="Focar (zoom 100%)" aria-label="Focar">${ICONS.focus}</button>
-          <button class="icon-btn" data-a="restart" title="Reiniciar terminal" aria-label="Reiniciar terminal">${ICONS.restart}</button>
-          <button class="icon-btn" data-a="finish" title="Finalizar" aria-label="Finalizar">${ICONS.close}</button>
+          <button class="ghost" data-a="expand" title="Abrir o terminal na tela toda">${ICONS.expand}<span>Expandir</span></button>
+          <button class="ghost" data-a="vscode" title="Abrir a pasta no VS Code para ver as mudanças">${ICONS.vscode}Abrir</button>
+          <button class="ghost" data-a="finish" title="Fechar o terminal">${ICONS.close}Finalizar</button>
         </div>
       </div>
       <div class="body"></div>
@@ -829,6 +821,8 @@
     const term = new Terminal({
       fontFamily: 'ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace',
       fontSize: 13, lineHeight: 1.15, cursorBlink: true, allowProposedApi: true, scrollback: 5000,
+      // agentes com tema escuro mandam cores fixas que somem no fundo claro; o xterm as ajusta para ficarem legíveis
+      minimumContrastRatio: 4.5,
       theme: XTERM_THEMES[resolvedTheme()],
     });
     const fit = new FitAddon.FitAddon();
@@ -842,34 +836,35 @@
     };
     n.nameEl.textContent = cfg.name;
     n.subEl.textContent = subtitle(cfg);
-    el.setAttribute('aria-label', `Terminal ${cfg.name}`);
+    el.setAttribute('aria-label', `Terminal ${label(cfg)}`);
     nodes.set(cfg.id, n);
     place(n);
 
-    term.onData((d) => { send(n, { t: 'in', d }); if (n.alert) setAlert(n, false); });
+    term.onData((d) => {
+      if (n.status === 'dead') { if (d === '\r') restart(n); return; }
+      send(n, { t: 'in', d });
+      if (n.alert) setAlert(n, false);
+    });
     term.onBell(() => notify(n)); // agentes podem tocar o "sino" quando precisam de você
 
-    n.nameEl.addEventListener('dblclick', () => startRename(n.nameEl, (name) => api('PATCH', `/api/terminals/${cfg.id}`, { name })));
+    // o arrasto captura o ponteiro no cabeçalho, então o duplo clique chega a ele e não ao nome
+    el.querySelector('.head').addEventListener('dblclick', (e) => {
+      if (!e.target.closest('button')) startRename(n.nameEl, (name) => api('PATCH', `/api/terminals/${cfg.id}`, { name }));
+    });
 
     el.querySelector('.head').addEventListener('click', (e) => {
       const b = e.target.closest('button[data-a]');
       const a = b && b.dataset.a;
-      if (a === 'focus') focusNode(n);
+      if (a === 'expand') setExpanded(n, !n.expanded);
       if (a === 'finish') openFinish(n);
       if (a === 'vscode') api('POST', `/api/terminals/${cfg.id}/vscode`).catch((err) => toast(err.message));
-      if (a === 'restart') {
-        term.reset();
-        api('POST', `/api/terminals/${cfg.id}/restart`)
-          .then(() => { if (!n.ws || n.ws.readyState > 1) connect(n); else setStatus(n, 'working'); })
-          .catch((err) => toast(err.message));
-      }
     });
 
     el.addEventListener('pointerdown', () => activate(n), true);
 
     // arrastar pelo cabeçalho
     el.querySelector('.head').addEventListener('pointerdown', (e) => {
-      if (e.target.closest('button') || e.target.isContentEditable) return;
+      if (e.target.closest('button') || e.target.isContentEditable || n.expanded) return;
       dragWith(e, (dx, dy, o) => { n.cfg.x = o.x + dx; n.cfg.y = o.y + dy; place(n); }, { x: n.cfg.x, y: n.cfg.y },
         () => api('PATCH', `/api/terminals/${cfg.id}`, { x: n.cfg.x, y: n.cfg.y }).catch(() => {}));
     });
@@ -886,6 +881,24 @@
     connect(n);
     if (pendingFocus === cfg.id) { pendingFocus = null; switchTo(session.id); activate(n); term.focus(); }
     return n;
+  }
+
+  function setExpanded(n, on) {
+    n.expanded = on;
+    n.el.classList.toggle('expanded', on);
+    // fora do quadro, o position: fixed vale para a janela e não para o quadro com zoom
+    (on ? document.body : n.session.world).appendChild(n.el);
+    const b = n.el.querySelector('[data-a="expand"]');
+    b.innerHTML = `${on ? ICONS.collapse : ICONS.expand}<span>${on ? 'Recolher' : 'Expandir'}</span>`;
+    b.title = on ? 'Voltar o terminal para o quadro' : 'Abrir o terminal na tela toda';
+    if (on) { activate(n); n.term.focus(); }
+  }
+
+  function restart(n) {
+    n.term.reset();
+    api('POST', `/api/terminals/${n.cfg.id}/restart`)
+      .then(() => { if (!n.ws || n.ws.readyState > 1) connect(n); else setStatus(n, 'working'); })
+      .catch((err) => toast(err.message));
   }
 
   function disposeNode(n) {
@@ -920,7 +933,7 @@
         n.lastOut = Date.now();
         if (!n.alert) setStatus(n, 'working');
       } else if (m.t === 'exit') {
-        n.term.write(`\r\n\x1b[90m[processo encerrado — clique em reiniciar]\x1b[0m\r\n`);
+        n.term.write(`\r\n\x1b[90m[processo encerrado — aperte Enter para reiniciar]\x1b[0m\r\n`);
         setStatus(n, 'dead');
       }
     };
@@ -931,7 +944,7 @@
     if (document.hasFocus() && n.session.id === active && n.el.classList.contains('active')) return;
     setAlert(n, true);
     if ('Notification' in window && Notification.permission !== 'denied') {
-      const note = new Notification('Orquestra', { body: `${n.cfg.name} precisa de você (${n.session.name})` });
+      const note = new Notification('Orquestra', { body: `${label(n.cfg)} precisa de você (${n.session.name})` });
       note.onclick = () => { if (app) app.show(); focusNode(n); };
     }
   }
@@ -973,8 +986,8 @@
       }
       const title = document.createElementNS(SVG, 'title');
       title.textContent = a.type === 'comando'
-        ? `${A.cfg.name} comanda ${B.cfg.name}`
-        : `${A.cfg.name} depende de ${B.cfg.name}`;
+        ? `${label(A.cfg)} comanda ${label(B.cfg)}`
+        : `${label(A.cfg)} depende de ${label(B.cfg)}`;
       g.appendChild(title);
       g.addEventListener('click', (e) => openArrowMenu(a, e));
       s.svg.appendChild(g);
@@ -998,72 +1011,336 @@
   });
   window.addEventListener('pointerdown', (e) => { if (!menu.contains(e.target)) menu.style.display = 'none'; });
 
-  // ---------------------------------------------------------------- nova conexão (modal)
-  const dlgConn = $('#dlgConn');
-  const connFrom = $('#connFrom'), connTo = $('#connTo');
-  let connType = 'comando';
+  // ---------------------------------------------------------------- anotações
+  // Texto escrito direto no quadro, que cresce conforme se escreve. Como nos terminais, a posição de uma
+  // anotação já aberta fica com a janela. O texto é uma lista de trechos { t, size, color }: cada parte
+  // tem tamanho e cor próprios e nada de HTML é guardado.
+  const NOTE_COLORS = { tinta: 'var(--text)', azul: 'var(--accent)', vermelho: 'var(--alert-text)', verde: 'var(--ok-text)', laranja: 'var(--dep-text)' };
+  const NOTE_SIZES = [{ size: 18, label: 'P' }, { size: 26, label: 'M' }, { size: 40, label: 'G' }];
+  const noteStyle = { size: 26, color: 'tinta' }; // o que a barra mostra: estilo da próxima anotação ou do texto no cursor
+  let focusedNote = null;
 
-  function fillSelect(sel, list, value) {
-    sel.innerHTML = '';
-    for (const n of list) sel.add(new Option(n.cfg.name, n.cfg.id, false, n.cfg.id === value));
-  }
-
-  function renderConn() {
-    const isCmd = connType === 'comando';
-    for (const c of dlgConn.querySelectorAll('.type-card')) c.setAttribute('aria-pressed', String(c.dataset.type === connType));
-    $('#fromLabel').textContent = isCmd ? 'Quem comanda' : 'Dependente';
-    $('#toLabel').textContent = isCmd ? 'Quem é comandado' : 'Responsável';
-    const A = nodes.get(connFrom.value), B = nodes.get(connTo.value);
-    $('#prevFrom').textContent = A ? A.cfg.name : '—';
-    $('#prevTo').textContent = B ? B.cfg.name : '—';
-    $('#prevFromDot').className = A ? A.status : '';
-    $('#prevToDot').className = B ? B.status : '';
-    $('#prevArrow').setAttribute('class', connType);
-    $('#prevText').textContent = A && B ? `${A.cfg.name} ${isCmd ? 'comanda' : 'depende de'} ${B.cfg.name}` : '';
-    $('#connErr').textContent = A && B && A === B ? 'Escolha dois terminais diferentes.' : '';
-    $('#btnCreateConn').disabled = !A || !B || A === B;
-  }
-
-  function openConnDialog() {
-    const list = sessionNodes(cur());
-    if (list.length < 2) return toast('A sessão precisa de pelo menos dois terminais para uma conexão.');
-    // começa pelo terminal ativo, se houver
-    const act = list.find((n) => n.el.classList.contains('active')) || list[0];
-    const other = list.find((n) => n !== act);
-    connType = 'comando';
-    fillSelect(connFrom, list, act.cfg.id);
-    fillSelect(connTo, list, other.cfg.id);
-    renderConn();
-    dlgConn.showModal();
-  }
-
-  dlgConn.querySelector('.types').addEventListener('click', (e) => {
-    const c = e.target.closest('.type-card');
-    if (c) { connType = c.dataset.type; renderConn(); }
-  });
-  connFrom.addEventListener('change', renderConn);
-  connTo.addEventListener('change', renderConn);
-  $('#btnSwap').addEventListener('click', () => {
-    const a = connFrom.value; connFrom.value = connTo.value; connTo.value = a; renderConn();
-  });
-  $('#btnCancelConn').addEventListener('click', () => dlgConn.close());
-  $('#connForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (connFrom.value === connTo.value) return renderConn();
-    $('#btnCreateConn').disabled = true;
-    try {
-      await api('POST', '/api/arrows', { from: connFrom.value, to: connTo.value, type: connType });
-      dlgConn.close();
-    } catch (err) {
-      $('#connErr').textContent = err.message;
-    } finally {
-      $('#btnCreateConn').disabled = false;
+  const runsText = (runs) => runs.map((r) => r.t).join('');
+  function mergeRuns(runs) {
+    const out = [];
+    for (const r of runs) {
+      if (!r.t) continue;
+      const last = out[out.length - 1];
+      if (last && last.size === r.size && last.color === r.color) last.t += r.t; else out.push({ ...r });
     }
+    return out;
+  }
+  // trechos entre as posições a e b do texto
+  function sliceRuns(runs, a, b) {
+    const out = [];
+    let pos = 0;
+    for (const r of runs) {
+      const from = Math.max(a, pos), to = Math.min(b, pos + r.t.length);
+      if (from < to) out.push({ ...r, t: r.t.slice(from - pos, to - pos) });
+      pos += r.t.length;
+    }
+    return out;
+  }
+  // estilo do caractere antes do cursor, que é o que o texto digitado ali herda
+  function styleBefore(runs, pos, base) {
+    let p = 0;
+    const i = Math.max(0, pos - 1);
+    for (const r of runs) {
+      if (i < p + r.t.length) return { size: r.size, color: r.color };
+      p += r.t.length;
+    }
+    return base;
+  }
+
+  const noteBase = (note) => ({ size: note.cfg.size, color: note.cfg.color });
+
+  // lê os trechos de um pedaço do texto (o próprio texto ou uma cópia parcial dele)
+  function walkRuns(root, base) {
+    const runs = [];
+    const walk = (node, style) => {
+      for (const ch of node.childNodes) {
+        if (ch.nodeType === 3) runs.push({ t: ch.data, ...style });
+        else if (ch.nodeName === 'BR') { if (!ch.classList.contains('end')) runs.push({ t: '\n', ...style }); }
+        else if (ch.nodeType === 1) {
+          const st = ch.dataset.size ? { size: +ch.dataset.size, color: ch.dataset.color } : style;
+          if (/^(DIV|P)$/.test(ch.nodeName) && runs.length) runs.push({ t: '\n', ...st });
+          walk(ch, st);
+        }
+      }
+    };
+    walk(root, base);
+    return mergeRuns(runs);
+  }
+  const readRuns = (note) => walkRuns(note.text, noteBase(note));
+
+  function renderRuns(note, runs) {
+    const els = runs.map((r) => {
+      const span = document.createElement('span');
+      span.dataset.size = r.size;
+      span.dataset.color = r.color;
+      span.style.fontSize = r.size + 'px';
+      span.style.color = NOTE_COLORS[r.color] || NOTE_COLORS.tinta;
+      span.textContent = r.t;
+      return span;
+    });
+    // uma quebra de linha no fim só aparece se vier algo depois dela
+    if (runsText(runs).endsWith('\n')) els.push(Object.assign(document.createElement('br'), { className: 'end' }));
+    note.text.replaceChildren(...els);
+  }
+
+  function styleNoteBase(note) {
+    note.text.style.fontSize = note.cfg.size + 'px';
+    note.text.style.color = NOTE_COLORS[note.cfg.color] || NOTE_COLORS.tinta;
+  }
+
+  // posição do cursor (ou da seleção) contada em caracteres do texto
+  function caretOffsets(note) {
+    const sel = getSelection();
+    if (!sel.rangeCount || !note.text.contains(sel.anchorNode)) return null;
+    const r = sel.getRangeAt(0);
+    const upTo = (node, offset) => {
+      const pre = document.createRange();
+      pre.setStart(note.text, 0);
+      pre.setEnd(node, offset);
+      return runsText(walkRuns(pre.cloneContents(), noteBase(note))).length;
+    };
+    return { start: upTo(r.startContainer, r.startOffset), end: upTo(r.endContainer, r.endOffset) };
+  }
+
+  function setSelection(note, a, b = a) {
+    const at = (target) => {
+      const walker = document.createTreeWalker(note.text, NodeFilter.SHOW_TEXT);
+      let p = 0, last = null;
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        if (target <= p + n.data.length) return [n, target - p];
+        p += n.data.length;
+        last = n;
+      }
+      return last ? [last, last.data.length] : [note.text, 0];
+    };
+    const r = document.createRange();
+    r.setStart(...at(a));
+    r.setEnd(...at(b));
+    getSelection().removeAllRanges();
+    getSelection().addRange(r);
+  }
+
+  // edita os trechos e redesenha o texto, mantendo o cursor no lugar
+  function editNote(note, fn) {
+    const runs = readRuns(note);
+    const len = runsText(runs).length;
+    const off = caretOffsets(note) || { start: len, end: len };
+    const res = fn(runs, off);
+    renderRuns(note, mergeRuns(res.runs));
+    setSelection(note, res.start, res.end);
+    note.save();
+  }
+
+  // texto digitado: herda o estilo de antes do cursor, com o que foi escolhido na barra por cima
+  function insertInNote(note, str) {
+    editNote(note, (runs, { start, end }) => {
+      const style = { ...styleBefore(runs, start, noteBase(note)), ...note.pending };
+      note.pending = null;
+      return {
+        runs: [...sliceRuns(runs, 0, start), { t: str, ...style }, ...sliceRuns(runs, end, Infinity)],
+        start: start + str.length,
+        end: start + str.length,
+      };
+    });
+  }
+
+  function restyleSelection(note, patch) {
+    editNote(note, (runs, { start, end }) => ({
+      runs: [...sliceRuns(runs, 0, start), ...sliceRuns(runs, start, end).map((r) => ({ ...r, ...patch })), ...sliceRuns(runs, end, Infinity)],
+      start,
+      end,
+    }));
+  }
+
+  function renderNotes(s, list) {
+    const ids = new Set(list.map((c) => c.id));
+    for (const [id, note] of s.notes) if (!ids.has(id)) { note.gone = true; note.el.remove(); s.notes.delete(id); }
+    for (const c of list) {
+      const note = s.notes.get(c.id) || makeNote(c, s);
+      if (note === focusedNote) continue;
+      Object.assign(note.cfg, { size: c.size, color: c.color });
+      styleNoteBase(note);
+      if (JSON.stringify(readRuns(note)) !== JSON.stringify(c.runs || [])) renderRuns(note, c.runs || []);
+    }
+  }
+
+  function makeNote(c, s) {
+    const el = document.createElement('div');
+    el.className = 'note';
+    el.innerHTML = `<div class="note-bar"><button class="icon-btn" title="Apagar anotação" aria-label="Apagar anotação">${ICONS.close}</button></div>
+      <div class="note-text" contenteditable="true" spellcheck="false" role="textbox" aria-multiline="true" aria-label="Anotação"></div>`;
+    s.world.appendChild(el);
+    const note = { cfg: { ...c }, el, text: el.querySelector('.note-text'), pending: null };
+    s.notes.set(c.id, note);
+    styleNoteBase(note);
+    renderRuns(note, c.runs || []);
+    const placeNote = () => Object.assign(el.style, { left: note.cfg.x + 'px', top: note.cfg.y + 'px' });
+    placeNote();
+    const patch = (body) => api('PATCH', `/api/notes/${c.id}`, body)
+      .catch((err) => { if (!note.gone) toast(`A anotação não foi salva: ${err.message}`); });
+    note.patch = patch;
+    const remove = () => {
+      if (note.gone) return; // o clique no ✕ também dispara o blur do texto
+      note.gone = true;
+      api('DELETE', `/api/notes/${c.id}`).catch((err) => { note.gone = false; toast(err.message); });
+    };
+
+    let typing = null;
+    note.save = () => {
+      clearTimeout(typing);
+      typing = setTimeout(() => patch({ runs: readRuns(note) }), 400);
+    };
+    // quebras de linha, colagens e textos com estilo escolhido passam pelos trechos;
+    // o resto da digitação o navegador faz direto no trecho em que está o cursor
+    note.text.addEventListener('beforeinput', (e) => {
+      if (e.inputType === 'insertParagraph' || e.inputType === 'insertLineBreak') { e.preventDefault(); insertInNote(note, '\n'); }
+      else if (e.inputType === 'insertText' && e.data && note.pending) { e.preventDefault(); insertInNote(note, e.data); }
+    });
+    note.text.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const t = e.clipboardData.getData('text/plain');
+      if (t) insertInNote(note, t);
+    });
+    note.text.addEventListener('drop', (e) => e.preventDefault());
+    note.text.addEventListener('input', () => {
+      if (!note.text.textContent) note.text.replaceChildren(); // volta a mostrar "Escreva aqui…"
+      note.save();
+    });
+    note.text.addEventListener('focus', () => { focusedNote = note; syncNoteBar(); });
+    // anotação deixada em branco some ao sair dela
+    note.text.addEventListener('blur', () => {
+      if (focusedNote === note) { focusedNote = null; renderNoteBar(); }
+      note.pending = null;
+      clearTimeout(typing);
+      const runs = readRuns(note);
+      if (!runsText(runs).trim()) remove(); else patch({ runs });
+    });
+    el.addEventListener('pointerdown', () => { el.style.zIndex = ++topZ; }, true);
+    el.querySelector('.note-bar button').addEventListener('click', remove);
+    el.querySelector('.note-bar').addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button')) return;
+      dragWith(e, (dx, dy, o) => { note.cfg.x = o.x + dx; note.cfg.y = o.y + dy; placeNote(); }, { x: note.cfg.x, y: note.cfg.y },
+        () => patch({ x: note.cfg.x, y: note.cfg.y }));
+    });
+    if (pendingNote === c.id) { pendingNote = null; note.text.focus(); }
+    return note;
+  }
+
+  // a barra mostra o estilo do texto no cursor da anotação em edição
+  function syncNoteBar() {
+    const note = focusedNote;
+    if (!note) return;
+    const runs = readRuns(note);
+    const off = caretOffsets(note);
+    Object.assign(noteStyle, styleBefore(runs, off ? off.start + (off.start === off.end ? 0 : 1) : 0, noteBase(note)), note.pending);
+    renderNoteBar();
+  }
+  document.addEventListener('selectionchange', syncNoteBar);
+
+  // x e y: ponto do quadro em que a pessoa clicou; o texto começa ali
+  async function addNote(x, y) {
+    const s = cur();
+    try {
+      const c = await api('POST', '/api/notes', { sessionId: s.id, x: x - 12, y: y - 22 - noteStyle.size / 2, ...noteStyle });
+      const note = s.notes.get(c.id);
+      if (note) note.text.focus(); else pendingNote = c.id;
+    } catch (err) { toast(err.message); }
+  }
+
+  // ---------------------------------------------------------------- modos: lápis e conectar
+  // Com um modo ligado, o próximo clique no quadro escreve uma anotação ou escolhe os terminais da conexão.
+  let mode = null; // 'note' | 'connect'
+  let connFrom = null;
+  let connType = 'comando';
+  const noteBar = $('#noteBar'), connBar = $('#connBar');
+
+  $('#noteSizes').innerHTML = NOTE_SIZES.map((o) =>
+    `<button class="opt size" data-size="${o.size}" title="Tamanho ${o.label}" style="font-size:${Math.round(o.size * 0.7)}px">Aa</button>`).join('');
+  $('#noteColors').innerHTML = Object.entries(NOTE_COLORS).map(([k, v]) =>
+    `<button class="opt color" data-color="${k}" title="${k[0].toUpperCase() + k.slice(1)}" style="color:${v}"><span class="swatch" style="background:${v}"></span></button>`).join('');
+
+  function renderNoteBar() {
+    noteBar.hidden = mode !== 'note' && !focusedNote;
+    for (const b of noteBar.querySelectorAll('[data-size]')) b.setAttribute('aria-pressed', String(+b.dataset.size === noteStyle.size));
+    for (const b of noteBar.querySelectorAll('[data-color]')) b.setAttribute('aria-pressed', String(b.dataset.color === noteStyle.color));
+  }
+
+  function renderConnBar() {
+    connBar.hidden = mode !== 'connect';
+    for (const b of connBar.querySelectorAll('[data-type]')) b.setAttribute('aria-pressed', String(b.dataset.type === connType));
+  }
+
+  function pickFrom(n) {
+    if (connFrom) connFrom.el.classList.remove('picked');
+    connFrom = n;
+    if (n) n.el.classList.add('picked');
+  }
+
+  function setMode(m) {
+    if (m === 'connect' && sessionNodes(cur()).length < 2) return toast('A sessão precisa de pelo menos dois terminais para uma conexão.');
+    mode = m;
+    pickFrom(null);
+    viewport.classList.toggle('mode-note', m === 'note');
+    viewport.classList.toggle('mode-connect', m === 'connect');
+    $('#btnNote').setAttribute('aria-pressed', String(m === 'note'));
+    $('#btnConnect').setAttribute('aria-pressed', String(m === 'connect'));
+    renderNoteBar(); renderConnBar();
+  }
+
+  // botões das barras não tiram o foco da anotação que está sendo editada
+  for (const bar of [noteBar, connBar]) bar.addEventListener('pointerdown', (e) => { if (e.target.closest('button')) e.preventDefault(); });
+  noteBar.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    const style = b.dataset.size ? { size: +b.dataset.size } : { color: b.dataset.color };
+    Object.assign(noteStyle, style);
+    const note = focusedNote;
+    if (note) {
+      const off = caretOffsets(note);
+      if (off && off.start !== off.end) restyleSelection(note, style); // trecho selecionado
+      else note.pending = { ...note.pending, ...style };                // o que for digitado a seguir
+      if (!note.text.textContent) {                                      // anotação vazia: muda o estilo inicial dela
+        Object.assign(note.cfg, style);
+        styleNoteBase(note);
+        note.patch(style);
+      }
+    }
+    renderNoteBar();
   });
+  connBar.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-type]');
+    if (b) { connType = b.dataset.type; renderConnBar(); }
+  });
+
+  // em captura, para o clique não chegar ao terminal nem mover a tela
+  viewport.addEventListener('pointerdown', (e) => {
+    if (!mode || e.button !== 0) return;
+    if (mode === 'note') {
+      if (!onBackground(e.target)) return;
+      e.preventDefault(); e.stopPropagation();
+      const r = viewport.getBoundingClientRect(), view = cur().view;
+      setMode(null);
+      addNote((e.clientX - r.left - view.x) / view.s, (e.clientY - r.top - view.y) / view.s);
+      return;
+    }
+    const el = e.target.closest('.node');
+    const n = el && [...nodes.values()].find((x) => x.el === el);
+    if (!n) return; // no fundo, o clique continua movendo a tela
+    e.preventDefault(); e.stopPropagation();
+    if (!connFrom || connFrom === n) { pickFrom(n); renderConnBar(); return; }
+    const from = connFrom;
+    setMode(null);
+    api('POST', '/api/arrows', { from: from.cfg.id, to: n.cfg.id, type: connType }).catch((err) => toast(err.message));
+  }, true);
 
   // ---------------------------------------------------------------- utilidades
   const shortPath = (p) => (defaults.home && (p || '').startsWith(defaults.home) ? '~' + p.slice(defaults.home.length) : p || '');
-  const updateEmpty = () => { $('#empty').style.display = cur() && sessionNodes(cur()).length ? 'none' : 'grid'; };
+  const updateEmpty = () => { $('#empty').style.display = cur() && (sessionNodes(cur()).length || cur().notes.size) ? 'none' : 'grid'; };
   const basename = (p) => p.split(/[\\/]/).filter(Boolean).pop() || p;
   function toast(msg) {
     const t = $('#toast');
@@ -1121,6 +1398,7 @@
 
   function openNewDialog() {
     form.reset();
+    wtNameEdited = false;
     gitInfo = null;
     $('#formErr').textContent = '';
     setAgent('');
@@ -1145,23 +1423,37 @@
       for (const wt of r.worktrees) {
         where.add(new Option(`Worktree ${basename(wt.path)}${wt.branch ? ` (${wt.branch})` : ''}`, 'wt:' + wt.path));
       }
-      where.add(new Option('Novo worktree…', 'new'));
+      where.add(new Option('Novo worktree com branch nova…', 'new'));
+      // o Git não deixa a mesma branch aberta em dois worktrees
+      const taken = new Set([r.currentBranch, ...r.worktrees.map((wt) => wt.branch)]);
+      const free = r.branches.filter((b) => !taken.has(b));
+      const pick = new Option(`Novo worktree de branch existente…${free.length ? '' : ' (nenhuma livre)'}`, 'existing');
+      pick.disabled = !free.length;
+      where.add(pick);
+      form.existingBranch.innerHTML = '';
+      for (const b of free) form.existingBranch.add(new Option(b, b));
       where.disabled = false;
-      $('#branches').innerHTML = r.branches.map((b) => `<option value="${b.replace(/"/g, '&quot;')}">`).join('');
     }
     renderWhere();
   }
 
   function renderWhere() {
     const isNew = form.where.value === 'new';
+    const isExisting = form.where.value === 'existing';
     $('#branchRow').hidden = !isNew;
+    $('#branchPickRow').hidden = !isExisting;
+    $('#wtNameRow').hidden = !isNew && !isExisting;
+    renderWtName();
     form.branch.required = isNew;
-    if (isNew) {
-      const base = gitInfo.repo.currentBranch;
-      $('#gitHint').textContent = `Uma branch nova parte de ${base || 'HEAD'}, a branch atual da pasta original. O worktree fica ao lado do projeto.`;
-    } else if (gitInfo && gitInfo.repo) {
-      $('#gitHint').textContent = '';
-    }
+  }
+
+  // o nome da worktree vem preenchido com <projeto>-<branch> e acompanha a branch até a pessoa editá-lo
+  let wtNameEdited = false;
+  function renderWtName() {
+    if (wtNameEdited) return;
+    const branch = form.where.value === 'new' ? form.branch.value.trim() : form.existingBranch.value;
+    const repo = gitInfo && gitInfo.repo ? basename(gitInfo.repo.root) : '';
+    form.worktreeName.value = branch && repo ? `${repo}-${branch.replace(/[\\/:*?"<>| ]+/g, '-')}` : '';
   }
 
   let dirTimer = null;
@@ -1179,6 +1471,9 @@
 
   form.dir.addEventListener('input', checkDir);
   form.where.addEventListener('change', renderWhere);
+  form.branch.addEventListener('input', renderWtName);
+  form.worktreeName.addEventListener('input', () => { wtNameEdited = form.worktreeName.value.trim() !== ''; });
+  form.existingBranch.addEventListener('change', renderWtName);
   $('#btnBrowse').addEventListener('click', async () => {
     const dir = await app.pickFolder(form.dir.value.trim() || undefined);
     if (dir) { form.dir.value = dir; checkDir(); }
@@ -1193,10 +1488,11 @@
     const offset = (sessionNodes(cur()).length % 5) * 30;
     const body = {
       sessionId: active,
-      name: form.name.value.trim(),
       agent: form.agent.value,
       dir: where.startsWith('wt:') ? where.slice(3) : form.dir.value.trim(),
-      worktreeBranch: where === 'new' ? form.branch.value.trim() : '',
+      worktreeBranch: where === 'new' ? form.branch.value.trim() : where === 'existing' ? form.existingBranch.value : '',
+      newBranch: where === 'new',
+      worktreeName: where === 'new' || where === 'existing' ? form.worktreeName.value.trim() : '',
       x: (viewport.clientWidth / 2 - view.x) / view.s - w / 2 + offset,
       y: (viewport.clientHeight / 2 - view.y) / view.s - h / 2 + offset,
     };
@@ -1222,7 +1518,7 @@
     let info;
     try { info = await api('GET', `/api/terminals/${n.cfg.id}/finish-info`); } catch (err) { return toast(err.message); }
     finishing = n;
-    $('#finishTitle').textContent = `Finalizar “${n.cfg.name}”`;
+    $('#finishTitle').textContent = n.cfg.name ? `Finalizar “${n.cfg.name}”` : 'Finalizar terminal';
     $('#finishErr').textContent = '';
     $('#btnDeleteWt').hidden = !info.worktree;
     $('#btnOnlyClose').textContent = info.worktree ? 'Só fechar o terminal' : 'Fechar terminal';
@@ -1258,7 +1554,8 @@
   // ---------------------------------------------------------------- barra e atalhos
   let pendingSession = null;
   $('#btnNew').onclick = openNewDialog;
-  $('#btnConnect').onclick = openConnDialog;
+  $('#btnConnect').onclick = () => setMode(mode === 'connect' ? null : 'connect');
+  $('#btnNote').onclick = () => setMode(mode === 'note' ? null : 'note');
   $('#btnAddSession').onclick = () => api('POST', '/api/sessions')
     .then((s) => { pendingSession = s.id; if (sessions.has(s.id)) switchTo(s.id); })
     .catch((err) => toast(err.message));
@@ -1268,11 +1565,16 @@
   $('#btnQuit').onclick = () => (app ? app.quit() : toast('Feche o aplicativo pelo menu do sistema.'));
 
   window.addEventListener('keydown', (e) => {
-    const typing = e.target.closest && (e.target.closest('.xterm') || e.target.matches('input, select, [contenteditable="true"]'));
-    if (typing || dlgNew.open || dlgFinish.open || dlgConn.open || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === 'Escape' && mode) { e.preventDefault(); e.stopPropagation(); setMode(null); }
+  }, true);
+
+  window.addEventListener('keydown', (e) => {
+    const typing = e.target.closest && (e.target.closest('.xterm') || e.target.matches('input, select, textarea, [contenteditable="true"]'));
+    if (typing || dlgNew.open || dlgFinish.open || e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key.toLowerCase();
     if (k === 'n') { e.preventDefault(); openNewDialog(); }
-    if (k === 'c') { e.preventDefault(); openConnDialog(); }
+    if (k === 'c') { e.preventDefault(); setMode(mode === 'connect' ? null : 'connect'); }
+    if (k === 'a') { e.preventDefault(); setMode(mode === 'note' ? null : 'note'); }
     if (k === 'f') fitAll();
   });
 

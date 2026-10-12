@@ -6,7 +6,7 @@ const path = require('path');
 const AJUDA = `Uso: orquestra-abrir --pasta <pasta> [--nome <nome>] [--agente claude|codex]
 
   --pasta   pasta ou worktree onde o terminal abre (relativa à pasta atual)
-  --nome    nome do terminal (opcional; sem nome, o Orquestra cria um)
+  --nome    nome do terminal (opcional)
   --agente  agente iniciado no terminal (opcional; sem agente, abre só o shell)`;
 
 function parse(argv) {
@@ -35,7 +35,7 @@ async function main() {
   });
   const body = await res.json();
   if (!res.ok) throw new Error(body.error || `Erro ${res.status}`);
-  console.log(`Terminal "${body.name}" aberto em ${body.cwd}`);
+  console.log(`Terminal ${body.name ? `"${body.name}" ` : ''}aberto em ${body.cwd}`);
 }
 
 main().catch((err) => {
