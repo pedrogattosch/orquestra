@@ -26,6 +26,8 @@ Clique em **Anotação** (ou tecla `A`): o cursor vira um lápis. Escolha o tama
 
 Arraste o fundo para mover a tela. Zoom com a roda do mouse no fundo, ou `Ctrl` + roda em qualquer lugar. **Ver todos** (`F`) enquadra os terminais da sessão.
 
+Para mandar um print a um agente, copie a imagem e cole no terminal com `Ctrl+V`: o Orquestra a salva num arquivo temporário e cola o caminho, como se a imagem tivesse sido arrastada para o terminal (o Claude Code mostra `[Image #1]`).
+
 ## Status de cada terminal
 
 - 🟢 **trabalhando:** saiu algo no terminal nos últimos 2,5 s

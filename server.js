@@ -331,6 +331,20 @@ function start({ dataDir, binDir, nodePath, port = 0 }) {
     return createTerminal({ dir, parentId: term.id, agent: term.agent, name: git.currentBranch(dir) || path.basename(dir) });
   }));
 
+  // Print colado com Ctrl+V: salva a imagem num arquivo temporário e devolve o caminho,
+  // que a janela cola no terminal como se a imagem tivesse sido arrastada para ele.
+  const IMAGE_EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'image/bmp': 'bmp' };
+  app.post('/api/terminals/:id/print', express.raw({ type: 'image/*', limit: '25mb' }), route((req) => {
+    findTerminal(req.params.id);
+    const ext = IMAGE_EXT[req.headers['content-type']];
+    if (!ext || !Buffer.isBuffer(req.body) || !req.body.length) throw new HttpError(400, 'Imagem inválida.');
+    const dir = path.join(os.tmpdir(), 'orquestra-prints');
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `print-${new Date().toISOString().replace(/[:.]/g, '-')}.${ext}`);
+    fs.writeFileSync(file, req.body);
+    return { path: file };
+  }));
+
   app.patch('/api/terminals/:id', route((req) => {
     const { term } = findTerminal(req.params.id);
     const b = req.body;

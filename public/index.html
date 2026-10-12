@@ -865,6 +865,23 @@
     term.onBell(() => notify(n)); // agentes podem tocar o "sino" quando precisam de você
     fixMouseForZoom(term);
 
+    // Ctrl+V com um print: o xterm só cola texto. A imagem vira um arquivo temporário e o caminho
+    // é colado no terminal, como ao arrastar uma imagem; o Claude Code o transforma em [Image #1].
+    el.addEventListener('paste', (e) => {
+      const items = [...(e.clipboardData ? e.clipboardData.items : [])];
+      const image = items.find((i) => i.kind === 'file' && i.type.startsWith('image/'));
+      if (!image || items.some((i) => i.type === 'text/plain')) return; // texto continua com o xterm
+      e.preventDefault();
+      e.stopPropagation();
+      const file = image.getAsFile();
+      fetch(`/api/terminals/${cfg.id}/print`, { method: 'POST', headers: { 'Content-Type': file.type }, body: file })
+        .then(async (res) => {
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || `Erro ${res.status}`);
+          term.paste(data.path);
+        })
+        .catch((err) => toast(`Não consegui colar a imagem: ${err.message}`));
+    }, true);
 
     // o arrasto captura o ponteiro no cabeçalho, então o duplo clique chega a ele e não ao nome
     el.querySelector('.head').addEventListener('dblclick', (e) => {
