@@ -16,7 +16,8 @@
     "test": "node --test",
     "postinstall": "electron-builder install-app-deps",
     "dist:linux": "electron-builder --linux deb",
-    "dist:win": "electron-builder --win nsis"
+    "dist:win": "electron-builder --win nsis",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.10.0",
@@ -29,8 +30,12 @@
     "node": ">=18"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "electron": "44.4.5",
-    "electron-builder": "26.15.3"
+    "electron-builder": "26.15.3",
+    "eslint": "10.12.0",
+    "eslint-plugin-html": "8.2.1",
+    "globals": "17.13.0"
   },
   "build": {
     "appId": "dev.orquestra.app",
