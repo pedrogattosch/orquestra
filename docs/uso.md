@@ -32,9 +32,11 @@ Para mandar um print a um agente, copie a imagem e cole no terminal com `Ctrl+V`
 
 - 🟢 **trabalhando:** saiu algo no terminal nos últimos 2,5 s
 - 🟡 **parado:** sem saída há um tempo (terminou ou está esperando você)
-- 🔴 **precisa de você:** o terminal tocou o "sino". Também aparece na aba da sessão, no título da janela e numa notificação do sistema.
+- 🔴 **precisa de você:** o terminal tocou o "sino", mandou uma notificação (OSC 9, 777 ou 99) ou, se tem agente, trabalhou por alguns segundos e parou de escrever (terminou ou está esperando você).
 
-Para o Claude Code tocar o sino quando precisar de aprovação, configure o canal de notificação dele para o sino do terminal (`/config` dentro do Claude Code).
+Cada aba de sessão tem uma bolinha com o estado da sessão: vermelha pulsando quando algum terminal precisa de você, verde quando algum está trabalhando e amarela quando todos estão parados.
+
+Quando um terminal precisa de você, de qualquer sessão, aparece um aviso pequeno no canto inferior esquerdo. Clique nele para ir à sessão e ao terminal; ele some sozinho depois de alguns segundos. Com a janela em segundo plano ou fechada, também aparece uma notificação do sistema. Não há aviso sobre o terminal que você está usando.
 
 ## Tema claro com o Claude Code
 

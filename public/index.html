@@ -106,8 +106,10 @@
     border-radius: 7px; cursor: pointer; white-space: nowrap; color: var(--muted); user-select: none; }
   .tab:hover { background: var(--hover); }
   .tab.active { background: var(--card); border-color: var(--line); color: var(--text); box-shadow: 0 1px 1px rgba(0,0,0,.03); }
-  .tab .adot { width: 6px; height: 6px; border-radius: 50%; background: var(--alert); display: none; }
-  .tab.alert .adot { display: inline-block; animation: pulse 1.2s infinite; }
+  .tab .adot { width: 6px; height: 6px; border-radius: 50%; display: none; flex: none; }
+  .tab.st-working .adot { display: inline-block; background: var(--ok); }
+  .tab.st-idle .adot { display: inline-block; background: var(--idle); }
+  .tab.alert .adot { display: inline-block; background: var(--alert); animation: pulse 1.2s infinite; }
   .tab.alert { color: var(--text); }
   .tname { outline: none; }
   .tname[contenteditable="true"] { background: var(--input); border-radius: 4px; padding: 0 4px; cursor: text; }
@@ -290,6 +292,18 @@
     color: var(--muted); text-align: center; line-height: 1.6; }
   #empty b { color: var(--text); font-weight: 600; }
   #empty kbd { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; }
+  /* avisos de "precisa de você" no canto, acima do resumo */
+  #notices { position: fixed; left: 16px; bottom: 68px; z-index: 1900; display: flex; flex-direction: column-reverse; gap: 8px;
+    pointer-events: none; }
+  .notice { pointer-events: auto; display: flex; align-items: center; gap: 10px; max-width: 320px; padding: 9px 12px;
+    background: var(--card); border: 1px solid var(--alert-line); border-radius: 9px; box-shadow: var(--shadow-float);
+    font: inherit; font-size: 12.5px; color: var(--text); text-align: left; cursor: pointer; animation: notice-in .18s ease-out; }
+  .notice:hover { background: var(--hover); }
+  .notice .ndot { width: 8px; height: 8px; border-radius: 50%; background: var(--alert); flex: none; animation: pulse 1.2s infinite; }
+  .notice .ntext { display: flex; flex-direction: column; min-width: 0; }
+  .notice .ntext b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .notice .ntext span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  @keyframes notice-in { from { opacity: 0; transform: translateY(6px); } }
   #toast { position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%); background: var(--alert); color: #fff;
     padding: 8px 14px; border-radius: 8px; display: none; z-index: 2000; max-width: 80vw; white-space: pre-line; box-shadow: var(--shadow-float); }
 </style>
@@ -468,6 +482,7 @@
 </dialog>
 
 <div id="toast" role="alert"></div>
+<div id="notices" aria-live="polite"></div>
 
 <script src="/vendor/xterm/lib/xterm.js"></script>
 <script src="/vendor/addon-fit/lib/addon-fit.js"></script>
@@ -475,6 +490,7 @@
 (() => {
   // ---------------------------------------------------------------- estado
   const IDLE_MS = 2500;        // sem saída por esse tempo => "parado"
+  const WORKED_MS = 5000;      // agente que trabalhou ao menos isso e parou => avisa
   const SVG = 'http://www.w3.org/2000/svg';
   const $ = (s) => document.querySelector(s);
   const viewport = $('#viewport');
@@ -680,9 +696,16 @@
     if (remember) api('PUT', '/api/active', { id }).catch(() => {});
   }
 
+  const TAB_TITLE = { alert: 'Um terminal desta sessão precisa de você', working: 'Trabalhando', idle: 'Parada' };
   function updateTabs() {
     for (const s of sessions.values()) {
-      s.tab.classList.toggle('alert', sessionNodes(s).some((n) => n.alert));
+      const list = sessionNodes(s);
+      const st = list.some((n) => n.alert) ? 'alert' : list.some((n) => n.status === 'working') ? 'working'
+        : list.some((n) => n.status === 'idle') ? 'idle' : '';
+      s.tab.classList.toggle('alert', st === 'alert');
+      s.tab.classList.toggle('st-working', st === 'working');
+      s.tab.classList.toggle('st-idle', st === 'idle');
+      s.tab.querySelector('.adot').title = TAB_TITLE[st] || '';
       s.tab.querySelector('.tclose').hidden = sessions.size === 1;
     }
     const waiting = [...nodes.values()].filter((n) => n.alert).length;
@@ -771,7 +794,7 @@
     n.dot.className = 'status ' + s;
     n.stateEl.className = 'state ' + s;
     n.stateEl.textContent = STATE_LABEL[s] || '';
-    if (changed && n.session.id === active) updateSummary();
+    if (changed) updateTabs();
   }
 
   function setAlert(n, on) {
@@ -863,6 +886,8 @@
       if (n.alert) setAlert(n, false);
     });
     term.onBell(() => notify(n)); // agentes podem tocar o "sino" quando precisam de você
+    // ...ou mandar uma notificação por sequência de escape (OSC 9 do iTerm2, 777 do Ghostty, 99 do kitty)
+    for (const code of [9, 777, 99]) term.parser.registerOscHandler(code, () => { notify(n); return true; });
     fixMouseForZoom(term);
 
     // Copiar e colar como num editor. Sozinho, o xterm transforma Ctrl+C e Ctrl+V em ^C e ^V e nunca
@@ -987,6 +1012,7 @@
       if (m.t === 'out') {
         n.term.write(m.d);
         n.lastOut = Date.now();
+        if (n.status !== 'working') n.workStart = n.lastOut;
         if (!n.alert) setStatus(n, 'working');
       } else if (m.t === 'exit') {
         n.term.write(`\r\n\x1b[90m[processo encerrado — aperte Enter para reiniciar]\x1b[0m\r\n`);
@@ -996,20 +1022,43 @@
     ws.onclose = () => { if (n.ws === ws && !n.closing && n.status !== 'dead') setStatus(n, 'dead'); };
   }
 
-  function notify(n) {
+  // Um terminal precisa de você: marca o alerta, mostra o aviso no canto e, com a janela fora de foco,
+  // também a notificação do sistema. Não avisa sobre o terminal que você está usando nem avisa duas vezes.
+  function notify(n, msg = 'precisa de você') {
+    if (n.alert || n.status === 'dead') return;
     if (document.hasFocus() && n.session.id === active && n.el.classList.contains('active')) return;
     setAlert(n, true);
-    if ('Notification' in window && Notification.permission !== 'denied') {
-      const note = new Notification('Orquestra', { body: `${label(n.cfg)} precisa de você (${n.session.name})` });
+    showNotice(n, msg);
+    if (!document.hasFocus() && 'Notification' in window && Notification.permission !== 'denied') {
+      const note = new Notification('Orquestra', { body: `${label(n.cfg)} ${msg} (${n.session.name})` });
       note.onclick = () => { if (app) app.show(); focusNode(n); };
     }
+  }
+
+  // aviso pequeno no canto: clicar leva à sessão e ao terminal; some sozinho depois de alguns segundos
+  const NOTICE_MS = 6000;
+  function showNotice(n, msg) {
+    const box = $('#notices');
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'notice';
+    el.innerHTML = '<span class="ndot"></span><span class="ntext"><b></b><span></span></span>';
+    el.querySelector('b').textContent = `${label(n.cfg)} ${msg}`;
+    el.querySelector('.ntext span').textContent = n.session.name;
+    const close = () => el.remove();
+    el.onclick = () => { close(); if (nodes.get(n.cfg.id) === n) focusNode(n); };
+    box.appendChild(el);
+    while (box.children.length > 3) box.firstChild.remove();
+    setTimeout(close, NOTICE_MS);
   }
 
   // de tempos em tempos, quem parou de imprimir vira "parado"
   setInterval(() => {
     const now = Date.now();
     for (const n of nodes.values()) {
-      if (n.status === 'working' && now - n.lastOut > IDLE_MS) setStatus(n, 'idle');
+      if (n.status !== 'working' || now - n.lastOut <= IDLE_MS) continue;
+      setStatus(n, 'idle');
+      if (n.cfg.agent && n.lastOut - n.workStart >= WORKED_MS) notify(n, 'terminou ou precisa de você');
     }
   }, 500);
 
