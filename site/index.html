@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Orquestra — todos os seus agentes de código, numa tela só</title>
+<title>Orquestra - Todos os seus agentes, numa tela só!</title>
 <meta name="description" content="Aplicativo desktop com uma tela infinita onde cada terminal é um bloco que você arrasta, organiza e conecta. Acompanhe vários agentes de código ao mesmo tempo.">
 <meta property="og:title" content="Orquestra">
-<meta property="og:description" content="Todos os seus agentes de código, numa tela só.">
+<meta property="og:description" content="Todos os seus agentes de código, numa tela só!">
 <meta property="og:image" content="icon.png">
 <link rel="icon" type="image/png" href="icon.png">
 <script>
@@ -20,7 +20,7 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
 <style>
   /* ---------- tokens (os mesmos do aplicativo) ---------- */
   :root {
@@ -37,7 +37,7 @@
     --cmd: #3B5BDB; --dep: #B7791F; --dep-text: #8A6216;
     --ok: #1F9D55; --ok-text: #1A7F46; --ok-ring: rgba(31,157,85,.15); --idle: #D99A2B;
     --alert: #D93F3A; --alert-text: #B8332F; --alert-line: #EDB4B1; --alert-ring: rgba(217,63,58,.10);
-    --prim-bg: #191918; --prim-fg: #FFFFFF;
+    --prim-bg: #191918; --prim-fg: #FFFFFF; --kbd: #BDBDB8;
     --code: #191918; --code-fg: #E8E8E5; --code-muted: #8A8A85;
     --shadow: 0 1px 2px rgba(20,20,18,.04), 0 10px 30px rgba(20,20,18,.06);
     --shadow-big: 0 2px 6px rgba(20,20,18,.04), 0 40px 90px rgba(20,20,18,.12);
@@ -53,7 +53,7 @@
     --cmd: #8EA2FF; --dep: #E0A43A; --dep-text: #E0A43A;
     --ok: #4ADE80; --ok-text: #4ADE80; --ok-ring: rgba(74,222,128,.15); --idle: #F0B03C;
     --alert: #F2555A; --alert-text: #FF7A75; --alert-line: #6B2B2A; --alert-ring: rgba(242,85,90,.12);
-    --prim-bg: #ECECEA; --prim-fg: #111112;
+    --prim-bg: #ECECEA; --prim-fg: #111112; --kbd: #6B6B70;
     --code: #0A0A0B; --code-fg: #E8E8E5; --code-muted: #6B6B70;
     --shadow: 0 16px 40px rgba(0,0,0,.45);
     --shadow-big: 0 40px 100px rgba(0,0,0,.6);
@@ -119,28 +119,50 @@
   .stage { position: absolute; left: 0; top: 0; width: 1120px; height: 620px; transform-origin: 0 0; font-size: 13px; line-height: 1.4;
     background-image: radial-gradient(var(--dot) 1px, transparent 1.2px); background-size: 22px 22px; }
   .stage .abs { position: absolute; }
-  .m-top { left: 0; right: 0; top: 0; height: 44px; display: flex; align-items: center; gap: 14px; padding: 0 12px 0 14px;
+  /* reproduz as classes do aplicativo (public/index.html), em escala menor */
+  .stage svg.i { width: 14px; height: 14px; stroke-width: 1.5; }
+  .stage kbd { font-size: 10px; color: var(--kbd); }
+  .m-top { left: 0; right: 0; top: 0; height: 44px; display: flex; align-items: center; gap: 16px; padding: 0 12px 0 16px;
     background: var(--bg); border-bottom: 1px solid var(--line2); }
-  .m-top img { width: 20px; height: 20px; border-radius: 5px; }
-  .m-tab { display: flex; align-items: center; gap: 7px; height: 28px; padding: 0 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--card); }
+  .m-brand { display: flex; align-items: center; gap: 8px; font-weight: 600; letter-spacing: -0.01em; }
+  .m-brand img { width: 22px; height: 22px; }
+  .m-vsep { width: 1px; height: 16px; background: var(--line); flex: none; }
+  .m-tabs { display: flex; align-items: center; gap: 2px; flex: 1; }
+  .m-tab { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 4px 0 10px; border: 1px solid transparent;
+    border-radius: 7px; color: var(--muted); }
+  .m-tab.on { background: var(--card); border-color: var(--line); color: var(--fg); }
+  .m-tab .x { width: 20px; height: 20px; display: grid; place-items: center; color: var(--muted); }
+  .m-tab .x svg.i { width: 11px; height: 11px; }
+  .m-tab.off .x { visibility: hidden; }
+  .m-icon { width: 28px; height: 28px; display: grid; place-items: center; color: var(--muted); }
+  .m-seg { display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: var(--hover); }
+  .m-seg span { width: 26px; height: 24px; display: grid; place-items: center; border-radius: 6px; color: var(--muted); }
+  .m-seg span.on { background: var(--card); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,.1); }
+  .m-ghost { height: 28px; display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; border-radius: 7px; color: var(--muted); white-space: nowrap; }
   .m-card { display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
   .m-card.active { border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--ring), var(--shadow); }
   .m-card.alert { border-color: var(--alert-line); box-shadow: 0 0 0 3px var(--alert-ring), var(--shadow); }
-  .m-head { height: 42px; flex: none; display: flex; align-items: center; gap: 9px; padding: 0 12px 0 13px; border-bottom: 1px solid var(--line2); }
+  .m-head { height: 44px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 8px 0 14px; border-bottom: 1px solid var(--line2); }
+  .m-status { width: 7px; height: 7px; border-radius: 50%; flex: none; }
   .m-head .t { display: flex; flex-direction: column; flex: 1; min-width: 0; }
   .m-head b { font-weight: 600; }
-  .m-head .sub { font-family: var(--mono); font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .m-head .acts { font-size: 11.5px; color: var(--muted); display: flex; gap: 10px; }
-  .m-body { padding: 12px 14px; font-family: var(--mono); font-size: 11.5px; line-height: 1.7; color: var(--term); }
+  .m-head .sub { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-head .state { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .m-head .acts { display: flex; gap: 2px; font-size: 12px; }
+  .m-body { padding: 10px 6px 6px 14px; font-family: var(--mono); font-size: 11.5px; line-height: 1.7; color: var(--term); white-space: pre; }
   .mut { color: var(--muted); }
-  .m-ask { border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; margin-top: 8px; }
+  .m-ask { border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; margin: 8px 8px 0 0; }
   .m-ask .sel { color: var(--fg); background: var(--hover); border-radius: 4px; margin: 4px -5px 0; padding: 0 5px; }
-  .m-note { font-family: var(--hand); font-size: 30px; line-height: 1.1; color: var(--accent); transform: rotate(-2deg); }
+  .m-arrows .cmd { stroke: var(--cmd); }
+  .m-arrows .dep { stroke: var(--dep); stroke-dasharray: 6 5; }
+  .m-note { padding: 22px 12px 10px; font-family: var(--hand); font-weight: 400; line-height: 1.15; color: var(--fg); white-space: pre; }
+  .m-summary { left: 16px; bottom: 20px; height: 36px; display: flex; align-items: center; gap: 14px; font-size: 12px; color: var(--muted); }
+  .m-summary span { display: flex; align-items: center; gap: 6px; }
   .m-float { display: flex; align-items: center; gap: 4px; padding: 5px; background: var(--card); border: 1px solid var(--line);
     border-radius: 12px; box-shadow: var(--shadow); color: var(--soft); }
-  .m-float span.b { height: 30px; display: flex; align-items: center; gap: 6px; padding: 0 10px; }
-  .m-float kbd { font-size: 10px; color: var(--muted); }
-  .m-float .sep { width: 1px; height: 16px; background: var(--line2); }
+  .m-float .b { height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 12px 0 10px; border-radius: 8px; white-space: nowrap; }
+  .m-float .z { width: 34px; height: 34px; display: grid; place-items: center; }
+  .m-float .sep { width: 1px; height: 18px; background: var(--line2); margin: 0 4px; }
 
   /* ---------- seções ---------- */
   section.band { border-top: 1px solid var(--line2); background: var(--alt); }
@@ -168,7 +190,7 @@
   .feature p { margin: 0; color: var(--muted); font-size: 15px; }
 
   .split { display: flex; flex-direction: row; flex-wrap: wrap; gap: 48px; align-items: center; }
-  .split.top { align-items: flex-start; }
+  .split.start { align-items: flex-start; }
   .col { flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
 
   .code { position: relative; background: var(--code); color: var(--code-fg); border-radius: 14px; padding: 20px 22px; font-family: var(--mono);
@@ -178,10 +200,6 @@
   .copy { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; display: grid; place-items: center;
     border: 0; border-radius: 8px; background: transparent; color: var(--code-muted); cursor: pointer; }
   .copy:hover { color: var(--code-fg); background: rgba(255,255,255,.08); }
-  .diagram { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; padding: 26px 16px; border: 1px solid var(--line);
-    border-radius: 14px; background: var(--bg); background-image: radial-gradient(var(--dot) 1px, transparent 1.2px); background-size: 16px 16px; }
-  .chip { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; background: var(--card); border: 1px solid var(--line);
-    border-radius: 9px; font-weight: 500; font-size: 14px; }
 
   .list { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 14px; background: var(--card); padding: 6px; margin: 0; list-style: none; }
   .list li { display: flex; align-items: center; gap: 14px; min-height: 52px; padding: 0 10px; }
@@ -221,7 +239,6 @@
     <a class="brand" href="#topo"><img src="icon.png" alt="" width="30" height="30">Orquestra</a>
     <div class="links">
       <a href="#recursos">Recursos</a>
-      <a href="#maestro">Maestro</a>
       <a href="#instalar">Instalar</a>
       <a href="https://github.com/pedrogattosch/orquestra/blob/main/docs/uso.md">Documentação</a>
     </div>
@@ -261,85 +278,97 @@
     <div class="frame" role="img" aria-label="O Orquestra com três terminais: api-auth trabalhando, frontend pedindo aprovação e testes parado, ligados por setas, com uma anotação escrita à mão.">
       <div class="stage" id="stage" aria-hidden="true">
         <div class="abs m-top">
-          <img src="icon.png" alt="">
-          <b style="font-weight:600">Orquestra</b>
-          <span style="width:1px;height:16px;background:var(--line)"></span>
-          <span class="m-tab">loja<span class="dot" style="background:var(--alert)"></span></span>
-          <span class="mut">pessoal</span><span class="mut">+</span>
-          <span style="flex:1"></span>
-          <span style="display:flex;gap:2px;padding:2px;border-radius:8px;background:var(--hover)"><span style="width:24px;height:22px;border-radius:6px;background:var(--card)"></span><span style="width:24px"></span><span style="width:24px"></span></span>
-          <span class="mut">Sair</span>
+          <span class="m-brand"><img src="icon.png" alt="">Orquestra</span>
+          <span class="m-vsep"></span>
+          <span class="m-tabs">
+            <span class="m-tab on">loja<span class="dot" style="background:var(--alert)"></span><span class="x"><svg class="i" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></svg></span></span>
+            <span class="m-tab off">pessoal<span class="x"><svg class="i" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></svg></span></span>
+            <span class="m-icon"><svg class="i" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg></span>
+          </span>
+          <span class="m-seg">
+            <span class="on"><svg class="i" viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="9" rx="1.5"/><path d="M5.5 14.5h5M8 11.5v3"/></svg></span>
+            <span><svg class="i" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1"/></svg></span>
+            <span><svg class="i" viewBox="0 0 16 16"><path d="M13.5 9.5A5.5 5.5 0 0 1 6.5 2.5a5.5 5.5 0 1 0 7 7z"/></svg></span>
+          </span>
+          <span class="m-vsep"></span>
+          <span class="m-ghost"><svg class="i" viewBox="0 0 16 16"><path d="M6.5 2.5H3.5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h3M10.5 5l3 3-3 3M13.5 8H6"/></svg>Sair</span>
         </div>
 
-        <svg class="abs" width="100" height="80" viewBox="0 0 100 80" style="left:510px;top:175px;overflow:visible">
-          <path d="M0 16 C 44 16, 48 62, 84 62" fill="none" stroke="var(--cmd)" stroke-width="1.6"/>
-          <path d="M80 57 L88 62 L80 67" fill="none" stroke="var(--cmd)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <svg class="abs" width="20" height="48" viewBox="0 0 20 48" style="left:330px;top:318px;overflow:visible">
-          <path d="M10 48 L10 6" fill="none" stroke="var(--dep)" stroke-width="1.6" stroke-dasharray="5 4"/>
-          <path d="M5 11 L10 3 L15 11" fill="none" stroke="var(--dep)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- setas como o aplicativo desenha: retas, de borda a borda, com ponta cheia -->
+        <svg class="abs m-arrows" width="1120" height="620" style="left:0;top:0;overflow:visible" fill="none" stroke-width="1.6">
+          <defs>
+            <marker id="pv-cmd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--cmd)"/></marker>
+            <marker id="pv-dep" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--dep)"/></marker>
+          </defs>
+          <line class="cmd" x1="540" y1="217" x2="600" y2="221.8" marker-end="url(#pv-cmd)"/>
+          <line class="dep" x1="295.6" y1="378" x2="292.3" y2="322" marker-end="url(#pv-dep)"/>
         </svg>
 
-        <div class="abs m-card active" style="left:40px;top:72px;width:470px;height:246px">
+        <div class="abs m-card active" style="left:30px;top:72px;width:510px;height:250px">
           <div class="m-head">
-            <span class="dot" style="width:7px;height:7px;background:var(--ok)"></span>
+            <span class="m-status" style="background:var(--ok);box-shadow:0 0 0 3px var(--ok-ring)"></span>
             <span class="t"><b>api-auth</b><span class="sub">~/dev/loja-feat-auth · feat/auth · claude</span></span>
-            <span style="font-size:11px;color:var(--ok-text)">trabalhando</span>
-            <span class="acts">Expandir<span>Abrir</span><span>Finalizar</span></span>
+            <span class="state" style="color:var(--ok-text)">trabalhando</span>
+            <span class="acts">
+              <span class="m-ghost"><svg class="i" viewBox="0 0 16 16"><path d="M10 2h4v4M6 14H2v-4M14 2L9.5 6.5M2 14l4.5-4.5"/></svg>Expandir</span>
+              <span class="m-ghost"><svg class="i" viewBox="0 0 16 16"><path d="M6 4L2 8l4 4M10 4l4 4-4 4"/></svg>Abrir</span>
+              <span class="m-ghost"><svg class="i" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></svg>Finalizar</span>
+            </span>
           </div>
-          <div class="m-body">
-            <div class="mut">› adiciona refresh token na sessão</div>
-            <div><span style="color:var(--ok)">●</span> Editando src/auth/session.ts <span style="color:var(--ok-text)">+42</span> <span style="color:var(--alert-text)">−8</span></div>
-            <div><span style="color:var(--ok)">●</span> Rodando npm test -- auth</div>
-            <div class="mut">  ⎿ 18 testes passaram</div>
-            <div><span style="color:var(--accent)">✻</span> Atualizando tipos…</div>
-          </div>
+          <div class="m-body"><div class="mut">› adiciona refresh token na sessão</div><div><span style="color:var(--ok)">●</span> Editando src/auth/session.ts <span style="color:var(--ok-text)">+42</span> <span style="color:var(--alert-text)">−8</span></div><div><span style="color:var(--ok)">●</span> Rodando npm test -- auth</div><div class="mut">  ⎿ 18 testes passaram</div><div><span style="color:var(--accent)">✻</span> Atualizando tipos…</div></div>
         </div>
 
-        <div class="abs m-card alert" style="left:600px;top:104px;width:480px;height:286px">
+        <div class="abs m-card alert" style="left:600px;top:96px;width:490px;height:290px">
           <div class="m-head">
-            <span class="dot" style="width:7px;height:7px;background:var(--alert)"></span>
-            <span class="t"><b>frontend</b><span class="sub">~/dev/loja-feat-checkout · codex</span></span>
-            <span style="font-size:11px;color:var(--alert-text);font-weight:500">precisa de você</span>
-            <span class="acts">Expandir<span>Abrir</span><span>Finalizar</span></span>
+            <span class="m-status" style="background:var(--alert);box-shadow:0 0 0 3px var(--alert-ring)"></span>
+            <span class="t"><b>frontend</b><span class="sub">~/dev/loja-feat-checkout · feat/checkout · codex</span></span>
+            <span class="state" style="color:var(--alert-text);font-weight:500">precisa de você</span>
+            <span class="acts">
+              <span class="m-ghost"><svg class="i" viewBox="0 0 16 16"><path d="M10 2h4v4M6 14H2v-4M14 2L9.5 6.5M2 14l4.5-4.5"/></svg>Expandir</span>
+              <span class="m-ghost"><svg class="i" viewBox="0 0 16 16"><path d="M6 4L2 8l4 4M10 4l4 4-4 4"/></svg>Abrir</span>
+              <span class="m-ghost"><svg class="i" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></svg>Finalizar</span>
+            </span>
           </div>
-          <div class="m-body">
-            <div class="mut">› conecta o checkout na nova API de sessão</div>
-            <div class="m-ask">
-              <div style="color:var(--fg);font-weight:500">Permitir esta edição?</div>
-              <div class="mut">src/api/client.ts  <span style="color:var(--ok-text)">+12</span> <span style="color:var(--alert-text)">−3</span></div>
-              <div class="sel">› 1. Sim</div>
-              <div class="mut">  2. Não, quero ajustar</div>
-            </div>
-          </div>
+          <div class="m-body"><div class="mut">› conecta o checkout na nova API de sessão</div><div class="m-ask"><div style="color:var(--fg);font-weight:500">Permitir esta edição?</div><div class="mut">src/api/client.ts  <span style="color:var(--ok-text)">+12</span> <span style="color:var(--alert-text)">−3</span></div><div class="sel">› 1. Sim</div><div class="mut">  2. Não, quero ajustar</div></div></div>
         </div>
 
-        <div class="abs m-card" style="left:150px;top:366px;width:400px;height:160px">
+        <div class="abs m-card" style="left:60px;top:378px;width:480px;height:150px">
           <div class="m-head">
-            <span class="dot" style="width:7px;height:7px;background:var(--idle)"></span>
-            <span class="t"><b>testes</b><span class="sub">~/dev/loja · main · terminal</span></span>
-            <span class="mut" style="font-size:11px">parado</span>
+            <span class="m-status" style="background:var(--idle)"></span>
+            <span class="t"><b>testes</b><span class="sub">~/dev/loja · main</span></span>
+            <span class="state">parado</span>
+            <span class="acts">
+              <span class="m-ghost"><svg class="i" viewBox="0 0 16 16"><path d="M10 2h4v4M6 14H2v-4M14 2L9.5 6.5M2 14l4.5-4.5"/></svg>Expandir</span>
+              <span class="m-ghost"><svg class="i" viewBox="0 0 16 16"><path d="M6 4L2 8l4 4M10 4l4 4-4 4"/></svg>Abrir</span>
+              <span class="m-ghost"><svg class="i" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></svg>Finalizar</span>
+            </span>
           </div>
-          <div class="m-body">
-            <div><span class="mut">$</span> npm run test:e2e</div>
-            <div>  checkout › finaliza compra <span style="color:var(--ok-text)">✓</span></div>
-            <div>  auth › sessão expira <span style="color:var(--dep-text)">… aguardando api-auth</span></div>
-          </div>
+          <div class="m-body"><div><span class="mut">$</span> npm run test:e2e</div><div>  checkout › finaliza compra <span style="color:var(--ok-text)">✓</span></div><div>  auth › sessão expira <span style="color:var(--dep-text)">… aguardando api-auth</span></div></div>
         </div>
 
-        <div class="abs m-note" style="left:650px;top:420px">revisar o checkout<br>antes do merge ↑</div>
+        <!-- anotação: cada trecho com o próprio tamanho (P 18, M 26, G 40) e cor -->
+        <div class="abs m-note" style="left:640px;top:392px"><span style="font-size:26px">revisar o <span style="color:var(--accent)">checkout</span></span>
+<span style="font-size:40px;color:var(--alert-text)">antes do merge</span></div>
 
-        <div class="abs mut" style="left:16px;bottom:22px;display:flex;gap:12px;font-size:11.5px">
-          <span style="display:flex;align-items:center;gap:5px"><span class="dot" style="background:var(--ok)"></span>1 trabalhando</span>
-          <span style="display:flex;align-items:center;gap:5px"><span class="dot" style="background:var(--idle)"></span>1 parado</span>
-          <span style="display:flex;align-items:center;gap:5px;color:var(--alert-text)"><span class="dot" style="background:var(--alert)"></span>1 precisa de você</span>
+        <div class="abs m-summary">
+          <span><span class="dot" style="background:var(--ok)"></span>1 trabalhando</span>
+          <span><span class="dot" style="background:var(--idle)"></span>1 parado</span>
+          <span style="color:var(--alert-text)"><span class="dot" style="background:var(--alert)"></span>1 precisa de você</span>
         </div>
-        <div class="abs m-float" style="left:50%;bottom:16px;transform:translateX(-50%)">
-          <span class="b">+ Terminal <kbd>N</kbd></span><span class="sep"></span>
-          <span class="b">Conexão <kbd>C</kbd></span><span class="sep"></span>
-          <span class="b">Anotação <kbd>A</kbd></span>
+        <div class="abs m-float" style="left:50%;bottom:20px;transform:translateX(-50%)">
+          <span class="b"><svg class="i" viewBox="0 0 16 16" style="stroke-width:1.6"><path d="M8 3v10M3 8h10"/></svg>Terminal <kbd>N</kbd></span>
+          <span class="sep"></span>
+          <span class="b"><svg class="i" viewBox="0 0 16 16" style="width:16px;height:16px"><rect x="1.5" y="9.5" width="5" height="5" rx="1.2"/><rect x="9.5" y="1.5" width="5" height="5" rx="1.2"/><path d="M6.5 12c3 0 3-8 3-8" style="stroke:var(--cmd)"/></svg>Conexão <kbd>C</kbd></span>
+          <span class="sep"></span>
+          <span class="b"><svg class="i" viewBox="0 0 16 16" style="width:16px;height:16px"><path d="M10.5 2.5l3 3L6 13H3v-3z"/></svg>Anotação <kbd>A</kbd></span>
         </div>
-        <div class="abs m-float" style="right:14px;bottom:16px;height:40px;padding:0 12px;gap:10px;font-family:var(--mono);font-size:11.5px">− <span class="mut">100%</span> +</div>
+        <div class="abs m-float" style="right:16px;bottom:20px;gap:2px">
+          <span class="z"><svg class="i" viewBox="0 0 16 16" style="width:15px;height:15px"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/></svg></span>
+          <span class="sep" style="margin:0 2px"></span>
+          <span class="z"><svg class="i" viewBox="0 0 16 16" style="stroke-width:1.6"><path d="M3 8h10"/></svg></span>
+          <span style="min-width:44px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--muted)">100%</span>
+          <span class="z"><svg class="i" viewBox="0 0 16 16" style="stroke-width:1.6"><path d="M8 3v10M3 8h10"/></svg></span>
+        </div>
       </div>
     </div>
   </section>
@@ -354,7 +383,7 @@
       </div>
       <div class="status-grid">
         <div class="status"><b><span class="dot" style="background:var(--ok);box-shadow:0 0 0 4px var(--ok-ring)"></span>Trabalhando</b><span>Saiu algo no terminal nos últimos segundos.</span></div>
-        <div class="status"><b><span class="dot" style="background:var(--idle)"></span>Parado</b><span>Sem saída há um tempo: terminou ou está esperando o próximo passo.</span></div>
+        <div class="status"><b><span class="dot" style="background:var(--idle)"></span>Parado</b><span>Terminou ou está esperando o próximo passo.</span></div>
         <div class="status alert"><b><span class="dot" style="background:var(--alert)"></span>Precisa de você</b><span>O agente tocou o sino do terminal. Um clique na notificação leva direto até ele.</span></div>
       </div>
     </div>
@@ -370,7 +399,7 @@
       <article class="feature">
         <span class="ico"><svg class="i" viewBox="0 0 16 16"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4M6 6h4v4H6z"/></svg></span>
         <h3>Tela infinita</h3>
-        <p>Cada terminal é um bloco que você arrasta e redimensiona. Zoom com a roda do mouse e “Ver todos” para enquadrar tudo.</p>
+        <p>Cada terminal é um bloco que você arrasta e redimensiona.</p>
       </article>
       <article class="feature">
         <span class="ico"><svg class="i" viewBox="0 0 16 16"><circle cx="5" cy="3.5" r="1.5"/><circle cx="5" cy="12.5" r="1.5"/><circle cx="11" cy="5" r="1.5"/><path d="M5 5v6M11 6.5c0 3-6 2-6 4.5"/></svg></span>
@@ -395,82 +424,61 @@
       <article class="feature">
         <span class="ico"><svg class="i" viewBox="0 0 16 16"><path d="M8 2.5v5M4.6 4.2a5 5 0 1 0 6.8 0"/></svg></span>
         <h3>Fechar não para nada</h3>
-        <p>Fechar a janela só a esconde: os agentes continuam rodando. Ao reabrir, as sessões voltam com o mesmo layout.</p>
+        <p>Fechar a janela só a esconde, os agentes continuam rodando. Ao reabrir, as sessões voltam com o mesmo layout.</p>
       </article>
     </div>
   </section>
 
-  <!-- ============ maestro ============ -->
-  <section id="maestro" class="band" style="border-bottom:1px solid var(--line2)">
-    <div class="wrap sec split">
-      <div class="col">
-        <span class="kicker">Maestro</span>
-        <h2>Um terminal que abre os outros.</h2>
-        <p>Dentro de qualquer terminal do Orquestra existe o comando <code>orquestra-abrir</code>. Ele abre um novo terminal na mesma sessão, já ligado por uma seta de comando. O agente que você usa como maestro cria a branch e o worktree e abre o terminal da tarefa sozinho.</p>
-      </div>
-      <div class="col" style="flex-basis:460px">
-<pre class="code"><span class="c"># no terminal do maestro</span>
-<span class="c">$</span> orquestra-abrir --pasta ../loja-pix \
-    --nome "pagamento pix" --agente claude</pre>
-        <div class="diagram" aria-hidden="true">
-          <span class="chip"><span class="dot" style="background:var(--ok)"></span>maestro</span>
-          <svg width="80" height="16" viewBox="0 0 80 16" fill="none" stroke="var(--cmd)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h70"/><path d="M70 4l4 4-4 4"/></svg>
-          <span class="chip"><span class="dot" style="background:var(--ok)"></span>pagamento pix</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
   <!-- ============ agentes e atalhos ============ -->
-  <section class="wrap sec split top" style="gap:48px">
-    <div class="col">
-      <h2 class="sm">Use o agente que preferir.</h2>
-      <p style="font-size:16px">Escolha na hora de abrir o terminal. Sem nenhum marcado, abre só o shell.</p>
-      <ul class="list">
-        <li><span class="mono-ico" style="background:var(--ag-claude-bg);color:var(--ag-claude-fg)">Cl</span><span class="n">Claude Code</span><code>claude</code></li>
-        <li><span class="mono-ico" style="background:var(--ag-codex-bg);color:var(--ag-codex-fg)">Cx</span><span class="n">Codex</span><code>codex</code></li>
-        <li><span class="mono-ico" style="background:var(--ag-gemini-bg);color:var(--ag-gemini-fg)">Ge</span><span class="n">Gemini CLI</span><code>gemini</code></li>
-        <li><span class="mono-ico" style="background:var(--ag-anti-bg);color:var(--ag-anti-fg)">Ag</span><span class="n">Antigravity</span><code>antigravity</code></li>
-        <li><span class="mono-ico" style="background:var(--ag-none-bg);color:var(--ag-none-fg)">&gt;_</span><span class="n">Só o terminal</span><code>$SHELL</code></li>
-      </ul>
-    </div>
-    <div class="col">
-      <h2 class="sm">Tudo a uma tecla.</h2>
-      <p style="font-size:16px">Os atalhos funcionam fora dos terminais, direto na tela.</p>
-      <ul class="list">
-        <li><kbd class="key">N</kbd><span>Novo terminal</span></li>
-        <li><kbd class="key">C</kbd><span>Nova conexão entre terminais</span></li>
-        <li><kbd class="key">A</kbd><span>Nova anotação</span></li>
-        <li><kbd class="key">F</kbd><span>Ver todos os terminais da sessão</span></li>
-        <li><kbd class="key">Esc</kbd><span>Cancelar conexão ou anotação</span></li>
-      </ul>
+  <section class="band" style="border-bottom:1px solid var(--line2)">
+    <div class="wrap sec split start" style="gap:48px">
+      <div class="col">
+        <h2 class="sm">Use o agente que preferir.</h2>
+        <p style="font-size:16px">Escolha na hora de abrir o terminal.</p>
+        <ul class="list">
+          <li><span class="mono-ico" style="background:var(--ag-claude-bg);color:var(--ag-claude-fg)">Cl</span><span class="n">Claude Code</span><code>claude</code></li>
+          <li><span class="mono-ico" style="background:var(--ag-codex-bg);color:var(--ag-codex-fg)">Cx</span><span class="n">Codex</span><code>codex</code></li>
+          <li><span class="mono-ico" style="background:var(--ag-gemini-bg);color:var(--ag-gemini-fg)">Ge</span><span class="n">Gemini CLI</span><code>gemini</code></li>
+          <li><span class="mono-ico" style="background:var(--ag-anti-bg);color:var(--ag-anti-fg)">Ag</span><span class="n">Antigravity</span><code>antigravity</code></li>
+          <li><span class="mono-ico" style="background:var(--ag-none-bg);color:var(--ag-none-fg)">&gt;_</span><span class="n">Só o terminal</span><code>$SHELL</code></li>
+        </ul>
+      </div>
+      <div class="col">
+        <h2 class="sm">Tudo a uma tecla.</h2>
+        <p style="font-size:16px">Os atalhos funcionam fora dos terminais, direto na tela.</p>
+        <ul class="list">
+          <li><kbd class="key">N</kbd><span>Novo terminal</span></li>
+          <li><kbd class="key">C</kbd><span>Nova conexão entre terminais</span></li>
+          <li><kbd class="key">A</kbd><span>Nova anotação</span></li>
+          <li><kbd class="key">F</kbd><span>Ver todos os terminais da sessão</span></li>
+          <li><kbd class="key">Esc</kbd><span>Cancelar conexão ou anotação</span></li>
+        </ul>
+      </div>
     </div>
   </section>
 
   <!-- ============ instalar ============ -->
-  <section id="instalar" class="band">
+  <section id="instalar">
     <div class="wrap sec" style="gap:40px">
       <div class="sec-head">
         <span class="kicker">Instalar</span>
         <h2>Pronto em um minuto.</h2>
-        <p>Você precisa de Git, do VS Code (comando <code>code</code>) e dos agentes que quiser usar.</p>
       </div>
       <div class="install">
         <article class="os">
-          <header><h3>Ubuntu</h3><span>.deb · amd64</span></header>
+          <header><h3>Ubuntu</h3><span>.deb</span></header>
           <div class="code sm"><span class="c">$</span> <span data-copy>sudo apt install ./orquestra_0.1.0_amd64.deb</span><button class="copy" type="button" aria-label="Copiar comando" title="Copiar"><svg class="i" viewBox="0 0 16 16"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg></button></div>
-          <p>Aparece no menu de aplicativos e pode ser fixado na dock. Para desinstalar: <code>sudo apt remove orquestra</code>.</p>
-          <a class="btn primary" href="https://github.com/pedrogattosch/orquestra/releases/latest"><svg class="i" viewBox="0 0 16 16"><path d="M8 2v8.5M4.5 7.5L8 11l3.5-3.5M2.5 13.5h11"/></svg>Baixar para Ubuntu</a>
+          <p>Aparece no menu de aplicativos e pode ser fixado na dock.</p>
+          <a class="btn" href="https://github.com/pedrogattosch/orquestra/releases/latest"><svg class="i" viewBox="0 0 16 16"><path d="M8 2v8.5M4.5 7.5L8 11l3.5-3.5M2.5 13.5h11"/></svg>Baixar para Ubuntu</a>
         </article>
         <article class="os">
-          <header><h3>Windows</h3><span>instalador .exe</span></header>
+          <header><h3>Windows</h3><span>.exe</span></header>
           <div class="code sm">Orquestra Setup 0.1.0.exe</div>
           <p>Rode o instalador. Para desinstalar, use as configurações do Windows.</p>
           <a class="btn" href="https://github.com/pedrogattosch/orquestra/releases/latest"><svg class="i" viewBox="0 0 16 16"><path d="M8 2v8.5M4.5 7.5L8 11l3.5-3.5M2.5 13.5h11"/></svg>Baixar para Windows</a>
         </article>
       </div>
       <div class="facts">
-        <span><svg class="i" viewBox="0 0 16 16"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>Só escuta em 127.0.0.1 e recusa pedidos de sites abertos no navegador.</span>
         <span><svg class="i" viewBox="0 0 16 16"><path d="M2.5 8a5.5 5.5 0 1 0 11 0 5.5 5.5 0 0 0-11 0M8 5v3l2 1.5"/></svg>Ao desinstalar, projetos, worktrees e branches ficam intactos.</span>
       </div>
     </div>
