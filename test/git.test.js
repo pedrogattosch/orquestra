@@ -48,6 +48,36 @@ test('cria worktree irmão com branch nova partindo da branch atual da pasta ori
   assert.strictEqual(info.currentBranch, 'dev');
 });
 
+test('cria worktree a partir de uma branch existente', () => {
+  const root = newRepo();
+  run(root, 'branch', 'tarefa');
+  const wt = g.ensureWorktree(root, 'tarefa', { newBranch: false });
+  assert.strictEqual(run(wt, 'rev-parse', '--abbrev-ref', 'HEAD'), 'tarefa');
+});
+
+test('recusa branch nova com nome já existente e branch existente que não existe', () => {
+  const root = newRepo();
+  run(root, 'branch', 'tarefa');
+  assert.throws(() => g.ensureWorktree(root, 'tarefa', { newBranch: true }), /já existe/);
+  assert.throws(() => g.ensureWorktree(root, 'outra', { newBranch: false }), /não existe/);
+  assert.deepStrictEqual(g.repoInfo(root).worktrees, []);
+});
+
+test('cria worktree com o nome de pasta escolhido', () => {
+  const root = newRepo();
+  const wt = g.ensureWorktree(root, 'feat/x', { newBranch: true, folder: 'minha tarefa' });
+  assert.strictEqual(wt, path.join(path.dirname(root), 'minha-tarefa'));
+  assert.strictEqual(run(wt, 'rev-parse', '--abbrev-ref', 'HEAD'), 'feat/x');
+});
+
+test('recusa nome de worktree que já existe ou inválido', () => {
+  const root = newRepo();
+  fs.mkdirSync(path.join(path.dirname(root), 'ocupada'));
+  assert.throws(() => g.ensureWorktree(root, 'a', { folder: 'ocupada' }), /já existe/);
+  assert.throws(() => g.ensureWorktree(root, 'b', { folder: '..' }), /inválido/);
+  assert.deepStrictEqual(g.repoInfo(root).worktrees, []);
+});
+
 test('recusa nome de branch inválido', () => {
   assert.throws(() => g.ensureWorktree(newRepo(), 'a..b'), /inválido/);
 });

@@ -60,8 +60,10 @@ function worktreeOf(dir) {
  * Cria (ou reaproveita) um worktree irmão da pasta original do repositório:
  *   /projetos/app  +  branch "login"  ->  /projetos/app-login
  * Uma branch nova parte da branch atual da pasta original.
+ * newBranch: true exige que a branch ainda não exista; false, que já exista; omitido aceita as duas.
+ * folder: nome escolhido para a pasta do worktree; precisa ser uma pasta nova.
  */
-function ensureWorktree(dir, branch) {
+function ensureWorktree(dir, branch, { newBranch, folder: custom } = {}) {
   const info = repoInfo(dir);
   if (!info) throw new Error('A pasta não é um repositório Git.');
   try {
@@ -69,12 +71,20 @@ function ensureWorktree(dir, branch) {
   } catch {
     throw new Error(`Nome de branch inválido: ${branch}`);
   }
+  const exists = info.branches.includes(branch);
+  if (newBranch === true && exists) throw new Error(`A branch ${branch} já existe. Escolha "Novo worktree de branch existente" ou outro nome.`);
+  if (newBranch === false && !exists) throw new Error(`A branch ${branch} não existe.`);
 
-  const folder = `${path.basename(info.root)}-${branch.replace(/[\\/:*?"<>| ]+/g, '-')}`;
+  const clean = (s) => s.replace(/[\\/:*?"<>| ]+/g, '-');
+  const folder = custom ? clean(custom.trim()) : `${path.basename(info.root)}-${clean(branch)}`;
+  if (!folder.replace(/[.-]/g, '')) throw new Error(`Nome de worktree inválido: ${custom}`);
   const target = path.join(path.dirname(info.root), folder);
-  if (fs.existsSync(target)) return target; // já existe: só usa
+  if (fs.existsSync(target)) {
+    if (custom) throw new Error(`A pasta ${target} já existe. Escolha outro nome para o worktree.`);
+    return target; // já existe: só usa
+  }
 
-  const args = info.branches.includes(branch)
+  const args = exists
     ? ['worktree', 'add', target, branch]
     : ['worktree', 'add', '-b', branch, target, info.currentBranch || 'HEAD'];
   git(info.root, args);
