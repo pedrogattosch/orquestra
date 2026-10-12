@@ -112,7 +112,10 @@ function start({ dataDir, binDir, nodePath, port = 0 }) {
   // ---------------------------------------------------------------- terminais
   function spawnTerminal(cfg) {
     const shell = defaultShell();
-    const sep = process.platform === 'win32' ? ';' : ':';
+    const win = process.platform === 'win32';
+    const sep = win ? ';' : ':';
+    // no Linux e no macOS, o intermediário do git (bin/shim) vem antes do git de verdade
+    const bins = win ? binDir : path.join(binDir, 'shim') + sep + binDir;
     const term = pty.spawn(shell.file, shell.args, {
       name: 'xterm-256color',
       cols: 100,
@@ -125,7 +128,7 @@ function start({ dataDir, binDir, nodePath, port = 0 }) {
         ORQUESTRA_URL: url,
         ORQUESTRA_TERMINAL_ID: cfg.id,
         ORQUESTRA_NODE: nodePath,
-        PATH: binDir + sep + (process.env.PATH || ''),
+        PATH: bins + sep + (process.env.PATH || ''),
       },
     });
 
@@ -316,6 +319,17 @@ function start({ dataDir, binDir, nodePath, port = 0 }) {
   }));
 
   app.post('/api/terminals', route((req) => createTerminal(req.body)));
+
+  // Aviso do intermediário do git: este terminal criou uma worktree. Abre um terminal nela,
+  // ligado a quem criou e com o mesmo agente, a menos que já exista um terminal ali.
+  app.post('/api/terminals/:id/worktree', route((req) => {
+    const { term } = findTerminal(req.params.id);
+    const raw = String((req.body && req.body.dir) || '').trim();
+    if (!raw) throw new HttpError(400, 'Informe a pasta da worktree.');
+    const dir = path.resolve(raw);
+    if (state.sessions.some((s) => s.terminals.some((t) => path.resolve(t.cwd) === dir))) return { skipped: true };
+    return createTerminal({ dir, parentId: term.id, agent: term.agent, name: git.currentBranch(dir) || path.basename(dir) });
+  }));
 
   app.patch('/api/terminals/:id', route((req) => {
     const { term } = findTerminal(req.params.id);

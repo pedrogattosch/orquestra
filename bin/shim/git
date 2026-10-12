@@ -1,0 +1,27 @@
+#!/bin/sh
+# Intermediário do git nos terminais do Orquestra (Linux e macOS).
+# Repassa tudo ao git de verdade e, depois de um `git worktree add` que deu certo,
+# pede ao Orquestra um terminal na worktree nova, ligado ao terminal que rodou o comando.
+
+# o git de verdade é o primeiro do PATH que não é este arquivo
+real=
+set -f
+IFS=:
+for d in $PATH; do
+  if [ -n "$d" ] && [ -f "$d/git" ] && [ -x "$d/git" ] && [ ! "$d/git" -ef "$0" ]; then real="$d/git"; break; fi
+done
+unset IFS
+set +f
+if [ -z "$real" ]; then echo "git: comando não encontrado" >&2; exit 127; fi
+
+case " $* " in
+  *" worktree "*) ;;
+  *) exec "$real" "$@" ;;
+esac
+
+"$real" "$@"
+code=$?
+if [ "$code" -eq 0 ] && [ -n "$ORQUESTRA_URL" ] && [ -n "$ORQUESTRA_TERMINAL_ID" ]; then
+  ELECTRON_RUN_AS_NODE=1 "$ORQUESTRA_NODE" "$(dirname "$0")/../orquestra-worktree.js" "$@"
+fi
+exit "$code"

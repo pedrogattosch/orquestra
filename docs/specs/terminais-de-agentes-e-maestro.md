@@ -45,7 +45,7 @@ A pessoa usuária já tem skills (por exemplo, `/iniciar`) que criam branch e wo
 12. Botão por terminal que abre no VS Code a pasta ou o worktree daquele terminal.
 13. Botão ✕ por terminal passando a ser o botão de finalizar, com a escolha entre só fechar o terminal ou fechar e excluir worktree e branch, sendo a exclusão bloqueada quando houver trabalho que se perderia.
 14. Identificação automática da branch principal de cada repositório, usada para verificar se uma branch já foi integrada.
-15. Abertura de terminais a partir de outro terminal, com seta de comando criada automaticamente.
+15. Abertura de terminais a partir de outro terminal, com seta de comando criada automaticamente, inclusive de forma automática quando um terminal cria um worktree.
 16. Setas entre terminais da mesma sessão, de dois tipos visualmente diferentes:
     - **comando:** um terminal comanda outro (por exemplo, o maestro e seus sub-agentes);
     - **dependência:** a implementação de um terminal depende da de outro.
@@ -193,6 +193,9 @@ A pessoa usuária já tem skills (por exemplo, `/iniciar`) que criam branch e wo
 - O novo terminal aparece na mesma sessão do terminal que pediu a abertura, como qualquer outro, com nome, caminho, branch e status, e pode ser acompanhado, aberto no VS Code e finalizado da mesma forma.
 - O Orquestra cria automaticamente uma seta de **comando** do terminal que pediu a abertura para o terminal aberto.
 - Esse é o recurso que a pessoa usuária usa no maestro: nele, roda um agente com suas skills para criar branch e worktree de uma tarefa, abrir o terminal dessa tarefa e, depois do merge, limpar branches e worktrees.
+- Quando um terminal cria um worktree com `git worktree add` e o comando dá certo, o Orquestra abre sozinho um terminal nesse worktree, como se o terminal tivesse pedido a abertura: na mesma sessão, com seta de comando, com o mesmo agente do terminal que criou o worktree e com o nome da branch do worktree (ou o nome da pasta, se não houver branch).
+- Essa abertura automática não acontece se já houver um terminal aberto no worktree, nem quando o worktree é criado pelo formulário de novo terminal, que já abre o seu.
+- No Windows, a abertura automática ainda não está disponível; lá, o terminal da tarefa é aberto pedindo a abertura.
 - Worktrees e branches criados ou removidos por um terminal passam a aparecer, ou deixam de aparecer, no formulário de novo terminal na próxima vez em que ele é aberto.
 
 ### Setas
@@ -298,6 +301,8 @@ A pessoa usuária já tem skills (por exemplo, `/iniciar`) que criam branch e wo
 ### Terminais abertos por outro terminal
 
 - Dado um terminal aberto, quando ele pede a abertura de um terminal em um worktree, então um novo terminal aparece na mesma sessão, aberto nesse worktree, com uma seta de comando do terminal que pediu para o novo.
+- Dado um terminal aberto no Ubuntu, quando ele roda `git worktree add` e o comando dá certo, então um novo terminal aparece na mesma sessão, aberto nesse worktree, com o mesmo agente, o nome da branch e uma seta de comando do terminal que criou o worktree.
+- Dado que já existe um terminal aberto em um worktree, quando outro terminal pede a abertura automática nesse worktree, então nenhum terminal novo é aberto.
 - Dado um terminal aberto por outro terminal, quando a pessoa usuária usa os botões de abrir no VS Code e ✕, então eles funcionam como em qualquer outro terminal.
 - Dado que um terminal criou um worktree por meio das skills, quando a pessoa usuária abre o formulário de novo terminal no mesmo projeto, então esse worktree aparece na lista.
 

@@ -32,5 +32,6 @@ No Ubuntu, o aplicativo usa X11 (XWayland) mesmo em sessões Wayland (`--ozone-p
 - `server.js`: servidor Express + WebSocket; guarda sessões, terminais, setas e anotações em `estado.json` na pasta de dados do aplicativo e abre cada terminal com `node-pty`.
 - `git.js`: worktrees, branches e a verificação que impede excluir trabalho não integrado.
 - `public/index.html`: a interface (xterm.js para desenhar os terminais).
-- `bin/`: o comando `orquestra-abrir`.
+- `bin/`: o comando `orquestra-abrir` e o `orquestra-worktree.js`, que pede o terminal de uma worktree recém-criada.
+- `bin/shim/git`: intermediário do `git` que vem antes do git de verdade no PATH dos terminais (Linux e macOS). Repassa tudo ao git e, depois de um `git worktree add` que deu certo, chama o `orquestra-worktree.js`.
 - `build/`: ícone e scripts de desinstalação do `.deb`.
