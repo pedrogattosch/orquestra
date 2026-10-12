@@ -1,0 +1,26 @@
+name: Instalador Windows
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  instalador:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run dist:win -- --publish never
+      - name: Testar o instalador
+        shell: pwsh
+        run: ./test/instalador-windows.ps1 -Instalador (Get-Item 'dist/Orquestra Setup *.exe').FullName
+      - uses: actions/upload-artifact@v4
+        with:
+          name: instalador-windows
+          path: dist/Orquestra Setup *.exe
+          if-no-files-found: error
