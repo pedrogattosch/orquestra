@@ -800,6 +800,23 @@
     });
   }
 
+  // O xterm não sabe do zoom do quadro (transform: scale): mede o mouse em pixels da tela e divide
+  // pelo tamanho da letra sem zoom, então a seleção começava longe de onde se clicou. Aqui as
+  // coordenadas do mouse são desfeitas do zoom antes de o xterm usá-las (API interna do xterm 5).
+  function fixMouseForZoom(term) {
+    const ms = term._core && term._core._mouseService;
+    if (!ms || !ms.getCoords || !ms.getMouseReportCoords) return;
+    const unzoom = (e, el) => {
+      const r = el.getBoundingClientRect();
+      const s = el.offsetWidth ? r.width / el.offsetWidth : 1;
+      if (!s || Math.abs(s - 1) < 0.001) return e;
+      return { clientX: r.left + (e.clientX - r.left) / s, clientY: r.top + (e.clientY - r.top) / s };
+    };
+    const getCoords = ms.getCoords.bind(ms), getReport = ms.getMouseReportCoords.bind(ms);
+    ms.getCoords = (e, el, ...rest) => getCoords(unzoom(e, el), el, ...rest);
+    ms.getMouseReportCoords = (e, el) => getReport(unzoom(e, el), el);
+  }
+
   function makeNode(cfg, session) {
     const el = document.createElement('section');
     el.className = 'node';
@@ -846,6 +863,8 @@
       if (n.alert) setAlert(n, false);
     });
     term.onBell(() => notify(n)); // agentes podem tocar o "sino" quando precisam de você
+    fixMouseForZoom(term);
+
 
     // o arrasto captura o ponteiro no cabeçalho, então o duplo clique chega a ele e não ao nome
     el.querySelector('.head').addEventListener('dblclick', (e) => {
