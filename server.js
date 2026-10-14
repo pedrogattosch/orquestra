@@ -220,12 +220,15 @@ function start({ dataDir, binDir, nodePath, port = 0 }) {
     const w = 720, h = 440;
     let { x, y } = body;
     if (parent) {
-      // à direita de quem pediu, descendo até achar um espaço sem outro terminal
-      const p = parent.term, gap = 40;
+      // à direita de quem pediu, numa grade de 3 colunas preenchida linha a linha: o primeiro espaço
+      // livre sem outro terminal, para os terminais ficarem espalhados e não numa fila para baixo
+      const p = parent.term, gap = 40, cols = 3;
       const hits = (t) => x < t.x + t.w + gap && x + w + gap > t.x && y < t.y + t.h + gap && y + h + gap > t.y;
-      x = p.x + p.w + 80;
-      y = p.y;
-      while (session.terminals.some(hits)) y += h + gap;
+      for (let i = 0; ; i++) {
+        x = p.x + p.w + 80 + (i % cols) * (w + gap);
+        y = p.y + Math.floor(i / cols) * (h + gap);
+        if (!session.terminals.some(hits)) break;
+      }
     }
     const name = String(body.name || '').trim();
     const cfg = {

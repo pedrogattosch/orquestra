@@ -55,7 +55,7 @@ orquestra-abrir --pasta ../projeto-minha-tarefa --nome "tarefa" --agente claude
 
 `--nome` e `--agente` são opcionais.
 
-No Ubuntu, nem é preciso chamar o `orquestra-abrir`: quando um terminal do Orquestra cria uma worktree com `git worktree add` (por exemplo, por uma skill que cria branch e worktree), o terminal da tarefa abre sozinho nessa worktree, com o mesmo agente, o nome da branch e a seta de comando. Se já houver um terminal aberto nela, nada muda. Terminais abertos antes de atualizar o Orquestra só ganham isso depois de reiniciados.
+No Ubuntu, nem é preciso chamar o `orquestra-abrir`: quando um terminal do Orquestra cria uma worktree com `git worktree add` (por exemplo, por uma skill que cria branch e worktree), o terminal da tarefa abre sozinho nessa worktree, com o mesmo agente, o nome da branch e a seta de comando. Os terminais abertos assim ficam à direita de quem os abriu, numa grade de três colunas. Se já houver um terminal aberto nela, nada muda. Terminais abertos antes de atualizar o Orquestra só ganham isso depois de reiniciados.
 
 ## Fechar a janela não para os agentes
 
