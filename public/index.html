@@ -175,7 +175,9 @@
     height: calc(100% - var(--top)) !important; z-index: 950 !important; border-radius: 0; border-width: 1px 0 0; }
   .node.expanded .head { cursor: default; }
   .node.expanded .grip { display: none; }
-  .body { flex: 1; min-height: 0; padding: 10px 6px 6px 14px; cursor: auto; }
+  /* content-box: o FitAddon mede a altura e a largura do .body como espaço livre; com border-box
+     o padding entraria na conta e as últimas linhas e colunas ficariam cortadas */
+  .body { flex: 1; min-height: 0; padding: 10px 6px 6px 14px; cursor: auto; box-sizing: content-box; }
   .body .xterm { height: 100%; }
   .xterm-viewport::-webkit-scrollbar { width: 8px; }
   .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
