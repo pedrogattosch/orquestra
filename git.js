@@ -40,6 +40,7 @@ function repoInfo(dir) {
     top: path.resolve(git(dir, ['rev-parse', '--show-toplevel'])),
     worktrees: worktrees.slice(1),
     branches,
+    mainBranch: mainBranch(main.path),
   };
 }
 
@@ -69,7 +70,7 @@ function worktreeOf(dir) {
  * newBranch: true exige que a branch ainda não exista; false, que já exista; omitido aceita as duas.
  * folder: nome escolhido para a pasta do worktree; precisa ser uma pasta nova.
  */
-function ensureWorktree(dir, branch, { newBranch, folder: custom } = {}) {
+function ensureWorktree(dir, branch, { newBranch, folder: custom, base } = {}) {
   const info = repoInfo(dir);
   if (!info) throw new Error('A pasta não é um repositório Git.');
   try {
@@ -80,6 +81,7 @@ function ensureWorktree(dir, branch, { newBranch, folder: custom } = {}) {
   const exists = info.branches.includes(branch);
   if (newBranch === true && exists) throw new Error(`A branch ${branch} já existe. Escolha "Novo worktree de branch existente" ou outro nome.`);
   if (newBranch === false && !exists) throw new Error(`A branch ${branch} não existe.`);
+  if (!exists && base && !info.branches.includes(base)) throw new Error(`A branch de origem ${base} não existe.`);
 
   const clean = (s) => s.replace(/[\\/:*?"<>| ]+/g, '-');
   const folder = custom ? clean(custom.trim()) : `${path.basename(info.root)}-${clean(branch)}`;
@@ -92,7 +94,7 @@ function ensureWorktree(dir, branch, { newBranch, folder: custom } = {}) {
 
   const args = exists
     ? ['worktree', 'add', target, branch]
-    : ['worktree', 'add', '-b', branch, target, info.currentBranch || 'HEAD'];
+    : ['worktree', 'add', '-b', branch, target, base || info.currentBranch || 'HEAD'];
   git(info.root, args);
   return target;
 }

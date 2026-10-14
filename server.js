@@ -211,7 +211,8 @@ function start({ dataDir, binDir, nodePath, port = 0 }) {
       try {
         const newBranch = typeof body.newBranch === 'boolean' ? body.newBranch : undefined;
         const folder = String(body.worktreeName || '').trim() || undefined;
-        cwd = git.ensureWorktree(dir, String(body.worktreeBranch).trim(), { newBranch, folder });
+        const base = String(body.baseBranch || '').trim() || undefined;
+        cwd = git.ensureWorktree(dir, String(body.worktreeBranch).trim(), { newBranch, folder, base });
       } catch (err) {
         throw new HttpError(400, (err.stderr && String(err.stderr).trim()) || err.message);
       }

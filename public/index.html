@@ -442,6 +442,9 @@
       <label class="f" id="branchRow" hidden>Nome da branch
         <input name="branch" class="mono" placeholder="nome da branch, ex.: feat/minha-tarefa">
       </label>
+      <label class="f" id="baseRow" hidden>Partir de
+        <select name="baseBranch"></select>
+      </label>
       <label class="f" id="branchPickRow" hidden>Branch existente
         <select name="existingBranch"></select>
       </label>
@@ -1592,6 +1595,10 @@
       where.add(pick);
       form.existingBranch.innerHTML = '';
       for (const b of free) form.existingBranch.add(new Option(b, b));
+      // a branch nova parte da principal, mesmo que a pasta do projeto esteja em outra branch
+      form.baseBranch.innerHTML = '';
+      for (const b of r.branches) form.baseBranch.add(new Option(b, b));
+      form.baseBranch.value = r.branches.includes(r.mainBranch) ? r.mainBranch : r.currentBranch || r.branches[0] || '';
       where.disabled = false;
     }
     renderWhere();
@@ -1601,6 +1608,7 @@
     const isNew = form.where.value === 'new';
     const isExisting = form.where.value === 'existing';
     $('#branchRow').hidden = !isNew;
+    $('#baseRow').hidden = !isNew || !form.baseBranch.options.length;
     $('#branchPickRow').hidden = !isExisting;
     $('#wtNameRow').hidden = !isNew && !isExisting;
     renderWtName();
@@ -1657,6 +1665,7 @@
       project: form.dir.value.trim(),
       worktreeBranch: where === 'new' ? form.branch.value.trim() : where === 'existing' ? form.existingBranch.value : '',
       newBranch: where === 'new',
+      baseBranch: where === 'new' ? form.baseBranch.value : '',
       worktreeName: where === 'new' || where === 'existing' ? form.worktreeName.value.trim() : '',
       x: (viewport.clientWidth / 2 - view.x) / view.s - w / 2 + offset,
       y: (viewport.clientHeight / 2 - view.y) / view.s - h / 2 + offset,

@@ -36,7 +36,7 @@ A pessoa usuária já tem skills (por exemplo, `/iniciar`) que criam branch e wo
    - nome da worktree, preenchido com `<projeto>-<branch>` e editável, ao criar um worktree;
    - pasta do projeto vinda da sessão; só numa sessão ainda sem projeto, seleção da pasta, digitando o caminho ou navegando pelas pastas;
    - seleção de worktree entre os existentes no projeto escolhido, ou criação de um novo;
-   - seleção de branch entre as existentes no projeto escolhido, ou criação de uma nova, com qualquer nome válido no Git, partindo da branch atual da pasta original do projeto;
+   - seleção de branch entre as existentes no projeto escolhido, ou criação de uma nova, com qualquer nome válido no Git, partindo da branch escolhida, que vem preenchida com a branch principal do projeto;
    - seleção do agente a iniciar: Claude, Codex ou nenhum.
 8. Remoção do campo de comando inicial do formulário, substituído pela seleção de agente.
 9. Terminal sem nome quando é aberto sem nome.
@@ -145,7 +145,8 @@ A pessoa usuária já tem skills (por exemplo, `/iniciar`) que criam branch e wo
   - abrir o terminal em um worktree existente;
   - criar um worktree novo com uma branch nova, com qualquer nome válido no Git;
   - criar um worktree novo a partir de uma branch existente que não esteja aberta em outro worktree.
-- Uma branch nova parte da branch atual da pasta original do projeto. Se a pasta original estiver na `main`, a branch nova parte da `main`; se estiver em outra branch, parte dela.
+- Uma branch nova parte da branch escolhida no campo **Partir de**, que lista as branches do projeto e vem preenchida com a branch principal (`main` ou `master`), mesmo que a pasta original esteja em outra branch. Se o projeto não tiver branch principal, vem preenchida com a branch atual da pasta original.
+- Uma branch nova criada por um terminal (pelo `orquestra-abrir` ou por `git worktree add`) segue a regra do Git ou do comando usado, sem o campo **Partir de**.
 - Se a pasta não for repositório Git, as opções de worktree e branch ficam indisponíveis e o terminal abre na pasta.
 - O formulário não pede nome do terminal: ele abre sem nome e pode ser nomeado depois, com duplo clique no cabeçalho.
 - Ao criar um worktree, o nome dele vem preenchido com `<projeto>-<branch>` e pode ser editado. Um nome de pasta que já existe é recusado.
@@ -279,7 +280,8 @@ A pessoa usuária já tem skills (por exemplo, `/iniciar`) que criam branch e wo
 - Dado uma pasta que não é repositório Git, quando ela é selecionada, então as opções de worktree e branch ficam indisponíveis e o terminal abre na pasta.
 - Dado um worktree existente selecionado, quando a pessoa usuária abre o terminal, então o terminal inicia dentro desse worktree e o cabeçalho mostra o caminho e a branch dele.
 - Dado que a pessoa usuária informa um nome de branch nova qualquer, válido no Git, quando abre o terminal com criação de worktree, então o worktree e a branch são criados e o terminal inicia dentro do worktree.
-- Dado uma branch nova criada pelo formulário, quando o worktree é criado, então a branch parte do commit atual da branch em que está a pasta original do projeto.
+- Dado a opção de worktree com branch nova, quando o formulário é exibido, então o campo **Partir de** vem preenchido com a branch principal do projeto, mesmo que a pasta original esteja em outra branch.
+- Dado uma branch nova criada pelo formulário, quando o worktree é criado, então a branch parte do commit atual da branch escolhida em **Partir de**.
 - Dado que a criação do worktree falha, quando a pessoa usuária tenta abrir o terminal, então nenhum terminal é aberto e a mensagem de erro é exibida.
 - Dado que o nome do terminal ficou vazio, quando o terminal é aberto pelo formulário ou por outro terminal, então ele aparece sem nome, com caminho, branch e status.
 - Dado a opção de worktree com branch nova, quando a pessoa usuária informa o nome de uma branch que já existe, então nenhum worktree é criado e o Orquestra informa que a branch já existe.

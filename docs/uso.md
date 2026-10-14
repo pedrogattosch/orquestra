@@ -7,7 +7,7 @@ Cada aba é uma sessão com seu próprio quadro e seu projeto. **＋** cria uma 
 ## Terminais
 
 - **+ Terminal** (ou tecla `N`): o terminal abre no projeto da sessão (**Trocar** muda o projeto, e o campo de pasta aparece sozinho se a pasta do projeto não existir mais); escolha onde (pasta do projeto, worktree existente, novo worktree com branch nova ou novo worktree de branch existente) e o agente (Claude, Codex ou nenhum). Numa sessão ainda sem projeto (a primeira do aplicativo ou uma criada antes desta versão), o formulário também pede a pasta, e ela vira o projeto da sessão.
-- Uma branch nova parte da branch atual da pasta original do projeto. O worktree fica ao lado do projeto; o nome dele vem preenchido com `projeto-nome-da-branch` e pode ser editado.
+- Uma branch nova parte da branch escolhida em **Partir de**, que vem preenchida com a principal (`main` ou `master`), mesmo que a pasta do projeto esteja em outra branch. O worktree fica ao lado do projeto; o nome dele vem preenchido com `projeto-nome-da-branch` e pode ser editado.
 - **Expandir** abre o terminal na tela toda; **Recolher** o devolve ao quadro.
 - **Abrir** abre a pasta do terminal no VS Code para ver o que mudou.
 - **Finalizar** fecha o terminal: dá para só fechar ou fechar e excluir o worktree e a branch. A exclusão só acontece se nada for perdido: sem alterações não commitadas, branch já integrada na principal (ou sem commits próprios) e nenhum outro terminal aberto no mesmo worktree.

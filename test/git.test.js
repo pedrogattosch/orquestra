@@ -49,6 +49,17 @@ test('cria worktree irmão com branch nova partindo da branch atual da pasta ori
   assert.strictEqual(info.currentBranch, 'dev');
 });
 
+test('cria branch nova partindo da branch de origem escolhida', () => {
+  const root = newRepo();
+  run(root, 'checkout', '-q', '-b', 'dev');
+  commit(root, 'dev.txt');
+  const info = g.repoInfo(root);
+  assert.strictEqual(info.mainBranch, 'main');
+  const wt = g.ensureWorktree(root, 'feat/x', { newBranch: true, base: info.mainBranch });
+  assert.strictEqual(run(wt, 'rev-parse', 'HEAD'), run(root, 'rev-parse', 'main'));
+  assert.throws(() => g.ensureWorktree(root, 'feat/y', { newBranch: true, base: 'nao-existe' }), /origem nao-existe não existe/);
+});
+
 test('cria worktree a partir de uma branch existente', () => {
   const root = newRepo();
   run(root, 'branch', 'tarefa');
