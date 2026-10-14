@@ -33,13 +33,13 @@ Para mandar um print a um agente, copie a imagem e cole no terminal com `Ctrl+V`
 
 ## Status de cada terminal
 
-- 🟢 **trabalhando:** saiu algo no terminal nos últimos 2,5 s
-- 🟡 **parado:** sem saída há um tempo (terminou ou está esperando você)
-- 🔴 **precisa de você:** o terminal tocou o "sino", mandou uma notificação (OSC 9, 777 ou 99) ou, se tem agente, trabalhou por alguns segundos e parou de escrever (terminou ou está esperando você).
+- 🟢 **trabalhando:** no Claude Code, enquanto o título do terminal mostra o spinner (◐ ◑); nos outros terminais, quando saiu algo nos últimos 2,5 s. O eco do que você digita e os redesenhos ao trocar de terminal, de sessão ou de zoom não contam.
+- 🟡 **parado:** o Claude Code mostra ✳ no título, ou o terminal está sem saída há um tempo.
+- 🔴 **precisa de você:** o terminal tocou o "sino", mandou uma notificação (OSC 9, 777 ou 99) ou o agente parou depois de trabalhar (terminou ou está esperando uma permissão sua).
 
 Cada aba de sessão tem uma bolinha com o estado da sessão: vermelha pulsando quando algum terminal precisa de você, verde quando algum está trabalhando e amarela quando todos estão parados.
 
-Quando um terminal precisa de você, de qualquer sessão, aparece um aviso pequeno no canto inferior esquerdo. Clique nele para ir à sessão e ao terminal; ele some sozinho depois de alguns segundos. Com a janela em segundo plano ou fechada, também aparece uma notificação do sistema. Não há aviso sobre o terminal que você está usando.
+Os avisos no canto superior direito são só do status dos terminais: quando um terminal, de qualquer sessão, precisa de você ou parou. Clique em **Ir até o terminal** para ir à sessão e ao terminal; o aviso de "parou" some sozinho depois de alguns segundos. Com a janela em segundo plano ou fechada, também aparece uma notificação do sistema. Não há aviso sobre o terminal que você está usando, nem ao recarregar a janela. Mensagens de erro aparecem por alguns segundos no alto, no centro.
 
 ## Tema claro com o Claude Code
 

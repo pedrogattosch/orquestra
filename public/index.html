@@ -294,20 +294,45 @@
     color: var(--muted); text-align: center; line-height: 1.6; }
   #empty b { color: var(--text); font-weight: 600; }
   #empty kbd { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; }
-  /* avisos de "precisa de você" no canto, acima do resumo */
-  #notices { position: fixed; left: 16px; bottom: 68px; z-index: 1900; display: flex; flex-direction: column-reverse; gap: 8px;
-    pointer-events: none; }
-  .notice { pointer-events: auto; display: flex; align-items: center; gap: 10px; max-width: 320px; padding: 9px 12px;
-    background: var(--card); border: 1px solid var(--alert-line); border-radius: 9px; box-shadow: var(--shadow-float);
-    font: inherit; font-size: 12.5px; color: var(--text); text-align: left; cursor: pointer; animation: notice-in .18s ease-out; }
-  .notice:hover { background: var(--hover); }
-  .notice .ndot { width: 8px; height: 8px; border-radius: 50%; background: var(--alert); flex: none; animation: pulse 1.2s infinite; }
-  .notice .ntext { display: flex; flex-direction: column; min-width: 0; }
-  .notice .ntext b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .notice .ntext span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  @keyframes notice-in { from { opacity: 0; transform: translateY(6px); } }
-  #toast { position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%); background: var(--alert); color: #fff;
-    padding: 8px 14px; border-radius: 8px; display: none; z-index: 2000; max-width: 80vw; white-space: pre-line; box-shadow: var(--shadow-float); }
+  /* ---------- avisos no canto: só o status dos terminais (precisa de você, parou) ---------- */
+  #notices { position: fixed; top: calc(var(--top) + 12px); right: 16px; z-index: 1900; width: min(360px, calc(100vw - 32px));
+    display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+  #notices > * { pointer-events: auto; }
+  .notice { position: relative; display: flex; gap: 12px; padding: 12px 12px 12px 14px; background: var(--card);
+    border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-float); overflow: hidden;
+    font-size: 13px; color: var(--text); animation: notice-in .18s ease-out; }
+  .notice.leaving { animation: notice-out .16s ease-in forwards; }
+  .notice.k-alert { border-color: var(--alert-line); box-shadow: 0 0 0 3px var(--alert-ring), var(--shadow-float); }
+  .notice .nico { width: 28px; height: 28px; flex: none; display: grid; place-items: center; border-radius: 8px; }
+  .notice .nico svg.i { width: 14px; height: 14px; stroke-width: 1.7; }
+  .k-alert .nico { background: color-mix(in srgb, var(--alert) 12%, transparent); }
+  .k-alert .nico i { width: 8px; height: 8px; border-radius: 50%; background: var(--alert); animation: pulse 1.2s infinite; }
+  .k-done .nico { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok-text); }
+  .notice .nbody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .notice .nhead { display: flex; align-items: baseline; gap: 8px; }
+  .notice .nhead b { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .notice time { flex: none; font-size: 11px; color: var(--muted); }
+  .notice .nsub { font-size: 12px; color: var(--muted); white-space: pre-line; overflow-wrap: anywhere; }
+  .notice .npeek { margin-top: 8px; padding: 6px 9px; border-radius: 7px; background: var(--hover); font-family: var(--mono);
+    font-size: 11.5px; color: var(--term); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .notice .nacts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .notice .nacts .btn { height: 30px; padding: 0 12px; font-size: 13px; }
+  .notice .nclose { width: 24px; height: 24px; margin: -2px -2px 0 0; flex: none; }
+  .notice .nclose svg.i { width: 12px; height: 12px; }
+  .notice .nbar { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: var(--line);
+    transform-origin: left; animation: notice-bar linear forwards; }
+  .notice:hover .nbar, .notice:focus-within .nbar { animation-play-state: paused; }
+  #notices .nall { align-self: flex-end; height: 28px; padding: 0 10px; border: 0; border-radius: 7px; background: transparent;
+    color: var(--muted); font-size: 12px; }
+  #notices .nall:hover { background: var(--hover); color: var(--text); }
+  /* mensagens de erro: uma por vez, no topo, longe da barra de ferramentas e fora dos avisos de status */
+  #flash { position: fixed; left: 50%; top: calc(var(--top) + 12px); transform: translateX(-50%); z-index: 1900; max-width: min(560px, calc(100vw - 32px));
+    padding: 10px 14px; border: 1px solid var(--alert-line); border-radius: 10px; background: var(--card); color: var(--alert-text);
+    box-shadow: var(--shadow-float); font-size: 13px; white-space: pre-line; overflow-wrap: anywhere; }
+  @keyframes notice-in { from { opacity: 0; transform: translateY(-6px); } }
+  @keyframes notice-out { to { opacity: 0; transform: translateX(12px); } }
+  @keyframes notice-bar { to { transform: scaleX(0); } }
+  @media (prefers-reduced-motion: reduce) { .notice, .notice.leaving { animation: none; } .k-alert .nico i { animation: none; } }
 </style>
 </head>
 <body>
@@ -508,8 +533,8 @@
   </div>
 </dialog>
 
-<div id="toast" role="alert"></div>
-<div id="notices" aria-live="polite"></div>
+<section id="notices" aria-label="Avisos" aria-live="polite"></section>
+<div id="flash" role="alert" hidden></div>
 
 <script src="/vendor/xterm/lib/xterm.js"></script>
 <script src="/vendor/addon-fit/lib/addon-fit.js"></script>
@@ -518,6 +543,7 @@
   // ---------------------------------------------------------------- estado
   const IDLE_MS = 2500;        // sem saída por esse tempo => "parado"
   const WORKED_MS = 5000;      // agente que trabalhou ao menos isso e parou => avisa
+  const ECHO_MS = 400;         // saída logo depois de digitar, redimensionar ou trocar o foco é eco ou redesenho, não trabalho
   const SVG = 'http://www.w3.org/2000/svg';
   const $ = (s) => document.querySelector(s);
   const viewport = $('#viewport');
@@ -807,6 +833,7 @@
   }
 
   function refit(n) {
+    n.quietUntil = Date.now() + ECHO_MS;
     try {
       n.fit.fit();
       send(n, { t: 'resize', cols: n.term.cols, rows: n.term.rows });
@@ -828,6 +855,7 @@
   function setAlert(n, on) {
     n.alert = on;
     n.el.classList.toggle('alert', on);
+    if (!on) dismissNotice(termNotices.get(n.cfg.id)); // você já foi até o terminal: o aviso dele some
     setStatus(n, on ? 'alert' : (n.status === 'alert' ? 'idle' : n.status));
     updateTabs();
   }
@@ -899,6 +927,7 @@
 
     const n = {
       cfg: { ...cfg }, session, el, term, fit, ws: null, alert: false, status: 'connecting', lastOut: 0,
+      quietUntil: 0, titleStatus: false, spinning: false, replaying: false,
       dot: el.querySelector('.status'), stateEl: el.querySelector('.state'),
       nameEl: el.querySelector('.name'), subEl: el.querySelector('.sub'),
     };
@@ -911,11 +940,25 @@
     term.onData((d) => {
       if (n.status === 'dead') { if (d === '\r') restart(n); return; }
       send(n, { t: 'in', d });
+      n.quietUntil = Date.now() + ECHO_MS;
       if (n.alert) setAlert(n, false);
     });
-    term.onBell(() => notify(n)); // agentes podem tocar o "sino" quando precisam de você
+    // O Claude Code mostra no título um spinner (◐ ◑) enquanto trabalha e ✳ quando para, seja porque terminou,
+    // seja porque espera uma permissão. Com esse sinal, o status vem do título e não de qualquer saída,
+    // que também inclui o eco do que se digita e os redesenhos ao trocar o foco ou o tamanho.
+    term.onTitleChange((title) => {
+      const mark = /^(\S)\s/.exec(title || '');
+      n.titleStatus = !!mark && !/[\p{L}\p{N}]/u.test(mark[1]);
+      if (!n.titleStatus) return;
+      const spinning = mark[1] !== '✳';
+      // só avisa quem o título mostrou trabalhando: a saída do shell antes do Claude abrir não conta
+      if (!spinning && n.spinning && !n.replaying) notify(n, 'terminou ou precisa de você');
+      n.spinning = spinning;
+      if (!n.alert) setStatus(n, spinning ? 'working' : 'idle');
+    });
+    term.onBell(() => { if (!n.replaying) notify(n); }); // agentes podem tocar o "sino" quando precisam de você
     // ...ou mandar uma notificação por sequência de escape (OSC 9 do iTerm2, 777 do Ghostty, 99 do kitty)
-    for (const code of [9, 777, 99]) term.parser.registerOscHandler(code, () => { notify(n); return true; });
+    for (const code of [9, 777, 99]) term.parser.registerOscHandler(code, () => { if (!n.replaying) notify(n); return true; });
     // Copiar pelo programa (OSC 52, usado pelo /copy do Claude Code): "c;<texto em base64>".
     // O xterm não trata essa sequência sozinho.
     term.parser.registerOscHandler(52, (data) => {
@@ -1053,12 +1096,18 @@
     n.ws = ws;
     setStatus(n, 'connecting');
     ws.onopen = () => refit(n);
+    let first = true;
     ws.onmessage = (ev) => {
       if (n.ws !== ws) return;
       const m = JSON.parse(ev.data);
       if (m.t === 'out') {
-        n.term.write(m.d);
-        n.lastOut = Date.now();
+        // a primeira mensagem reexibe o histórico: os títulos antigos dela não geram avisos
+        if (first) { n.replaying = true; n.term.write(m.d, () => { n.replaying = false; }); } else n.term.write(m.d);
+        first = false;
+        if (n.titleStatus) return;
+        const now = Date.now();
+        if (now < n.quietUntil && n.status !== 'working') return;
+        n.lastOut = now;
         if (n.status !== 'working') n.workStart = n.lastOut;
         if (!n.alert) setStatus(n, 'working');
       } else if (m.t === 'exit') {
@@ -1069,41 +1118,153 @@
     ws.onclose = () => { if (n.ws === ws && !n.closing && n.status !== 'dead') setStatus(n, 'dead'); };
   }
 
-  // Um terminal precisa de você: marca o alerta, mostra o aviso no canto e, com a janela fora de foco,
-  // também a notificação do sistema. Não avisa sobre o terminal que você está usando nem avisa duas vezes.
+  // Um terminal precisa de você (sino ou OSC) ou parou depois de trabalhar: marca o alerta, mostra o aviso
+  // no canto e, com a janela fora de foco, também a notificação do sistema.
+  // Não avisa sobre o terminal que você está usando nem avisa duas vezes.
   function notify(n, msg = 'precisa de você') {
     if (n.alert || n.status === 'dead') return;
     if (document.hasFocus() && n.session.id === active && n.el.classList.contains('active')) return;
+    const kind = msg === 'precisa de você' ? 'alert' : 'done';
     setAlert(n, true);
-    showNotice(n, msg);
+    noticeFor(n, kind);
     if (!document.hasFocus() && 'Notification' in window && Notification.permission !== 'denied') {
-      const note = new Notification('Orquestra', { body: `${label(n.cfg)} ${msg} (${n.session.name})` });
+      const title = kind === 'alert' ? `${label(n.cfg)} precisa de você` : `${label(n.cfg)} parou`;
+      const note = new Notification(title, { body: `${n.session.name} · ${agentName(n.cfg)}`, icon: '/icon.png', tag: n.cfg.id });
       note.onclick = () => { if (app) app.show(); focusNode(n); };
     }
   }
 
-  // aviso pequeno no canto: clicar leva à sessão e ao terminal; some sozinho depois de alguns segundos
-  const NOTICE_MS = 6000;
-  function showNotice(n, msg) {
-    const box = $('#notices');
-    const el = document.createElement('button');
-    el.type = 'button';
-    el.className = 'notice';
-    el.innerHTML = '<span class="ndot"></span><span class="ntext"><b></b><span></span></span>';
-    el.querySelector('b').textContent = `${label(n.cfg)} ${msg}`;
-    el.querySelector('.ntext span').textContent = n.session.name;
-    const close = () => el.remove();
-    el.onclick = () => { close(); if (nodes.get(n.cfg.id) === n) focusNode(n); };
-    box.appendChild(el);
-    while (box.children.length > 3) box.firstChild.remove();
-    setTimeout(close, NOTICE_MS);
+  // ---------------------------------------------------------------- avisos no canto
+  // tipos: alert (fica até você responder), done (some em 10 s)
+  const NOTICE_MS = { done: 10000 };
+  const MAX_NOTICES = 4;
+  const noticeBox = $('#notices');
+  const termNotices = new Map(); // id do terminal -> aviso aberto dele (um por terminal)
+  const NICON = {
+    done: '<svg class="i" viewBox="0 0 16 16"><path d="M3 8.5l3 3 7-7"/></svg>',
+  };
+  const agentName = (cfg) => (AGENTS.find((a) => a.id === cfg.agent) || { name: 'Terminal' }).name;
+
+  // última linha com texto do terminal, para mostrar no aviso o que ele está pedindo
+  function lastLine(n) {
+    try {
+      const buf = n.term.buffer.active;
+      for (let i = buf.baseY + buf.cursorY, stop = Math.max(0, i - 30); i >= stop; i--) {
+        const line = buf.getLine(i);
+        const t = line && line.translateToString(true).replace(/[│╭╮╰╯─]+/g, ' ').trim();
+        if (t && !/^[>›❯$#%]\s*$/.test(t)) return t;
+      }
+    } catch {}
+    return '';
+  }
+
+  function ago(ts) {
+    const s = Math.round((Date.now() - ts) / 1000);
+    if (s < 45) return 'agora';
+    const m = Math.round(s / 60);
+    return m < 60 ? `há ${m} min` : `há ${Math.round(m / 60)} h`;
+  }
+  setInterval(() => noticeBox.querySelectorAll('time[data-ts]').forEach((t) => (t.textContent = ago(+t.dataset.ts))), 30000);
+
+  function dismissNotice(el) {
+    if (!el || el.classList.contains('leaving')) return;
+    clearTimeout(el._timer);
+    if (el._term) termNotices.delete(el._term);
+    el.classList.add('leaving');
+    const done = () => { el.remove(); updateNoticeAll(); };
+    el.addEventListener('animationend', done, { once: true });
+    setTimeout(done, 250); // garante a remoção mesmo sem animação
+  }
+
+  function updateNoticeAll() {
+    let all = noticeBox.querySelector('.nall');
+    const count = noticeBox.querySelectorAll('.notice:not(.leaving)').length;
+    if (count < 2) { if (all) all.remove(); return; }
+    if (!all) {
+      all = document.createElement('button');
+      all.type = 'button';
+      all.className = 'nall';
+      all.textContent = 'Dispensar todos';
+      all.onclick = () => noticeBox.querySelectorAll('.notice').forEach(dismissNotice);
+    }
+    noticeBox.appendChild(all);
+  }
+
+  // cria um aviso; o mais novo fica em cima
+  function pushNotice({ kind, title, sub = '', peek = '', actions = [], term = null }) {
+    const el = document.createElement('div');
+    el.className = `notice k-${kind}`;
+    el.setAttribute('role', 'status');
+    el.innerHTML = `
+      <span class="nico" aria-hidden="true">${kind === 'alert' ? '<i></i>' : NICON[kind]}</span>
+      <div class="nbody">
+        <div class="nhead"><b></b>${term ? `<time data-ts="${Date.now()}">agora</time>` : ''}</div>
+        <span class="nsub"></span>
+        <div class="npeek"></div>
+        <div class="nacts"></div>
+      </div>
+      <button type="button" class="icon-btn nclose" aria-label="Fechar aviso">${ICONS.close}</button>`;
+    el.querySelector('b').textContent = title;
+    el.querySelector('.nsub').textContent = sub;
+    el.querySelector('.nsub').hidden = !sub;
+    el.querySelector('.npeek').textContent = peek;
+    el.querySelector('.npeek').hidden = !peek;
+    const acts = el.querySelector('.nacts');
+    acts.hidden = !actions.length;
+    for (const a of actions) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn' + (a.primary ? ' primary' : '');
+      b.textContent = a.label;
+      b.onclick = () => { dismissNotice(el); a.run && a.run(); };
+      acts.appendChild(b);
+    }
+    el.querySelector('.nclose').onclick = () => dismissNotice(el);
+
+    // os que somem sozinhos mostram o tempo numa barra fina; passar o mouse pausa
+    const ms = NOTICE_MS[kind];
+    if (ms) {
+      const bar = document.createElement('span');
+      bar.className = 'nbar';
+      bar.setAttribute('aria-hidden', 'true');
+      bar.style.animationDuration = ms + 'ms';
+      bar.addEventListener('animationend', () => dismissNotice(el));
+      el.appendChild(bar);
+    }
+
+    if (term) { el._term = term; termNotices.set(term, el); }
+    noticeBox.prepend(el);
+    // limite de avisos na tela: sai primeiro o mais antigo que não seja "precisa de você"
+    const list = [...noticeBox.querySelectorAll('.notice:not(.leaving)')];
+    if (list.length > MAX_NOTICES) {
+      const old = list.reverse().find((x) => !x.classList.contains('k-alert')) || list[0];
+      dismissNotice(old);
+    }
+    updateNoticeAll();
+    return el;
+  }
+
+  // aviso de um terminal: substitui o anterior do mesmo terminal
+  function noticeFor(n, kind) {
+    dismissNotice(termNotices.get(n.cfg.id));
+    const go = () => { if (nodes.get(n.cfg.id) === n) focusNode(n); };
+    pushNotice({
+      kind,
+      term: n.cfg.id,
+      title: kind === 'alert' ? `${label(n.cfg)} precisa de você` : `${label(n.cfg)} parou`,
+      sub: `${n.session.name} · ${agentName(n.cfg)}${kind === 'done' ? ' · terminou ou espera você' : ''}`,
+      peek: kind === 'alert' ? lastLine(n) : '',
+      actions: kind === 'alert'
+        ? [{ label: 'Ir até o terminal', primary: true, run: go }, { label: 'Depois' }]
+        : [{ label: 'Ir até o terminal', run: go }],
+    });
   }
 
   // de tempos em tempos, quem parou de imprimir vira "parado"
   setInterval(() => {
     const now = Date.now();
     for (const n of nodes.values()) {
-      if (n.status !== 'working' || now - n.lastOut <= IDLE_MS) continue;
+      if (n.titleStatus || n.status !== 'working' || now - n.lastOut <= IDLE_MS) continue;
       setStatus(n, 'idle');
       if (n.cfg.agent && n.lastOut - n.workStart >= WORKED_MS) notify(n, 'terminou ou precisa de você');
     }
@@ -1494,10 +1655,14 @@
   const shortPath = (p) => (defaults.home && (p || '').startsWith(defaults.home) ? '~' + p.slice(defaults.home.length) : p || '');
   const updateEmpty = () => { $('#empty').style.display = cur() && (sessionNodes(cur()).length || cur().notes.size) ? 'none' : 'grid'; };
   const basename = (p) => p.split(/[\\/]/).filter(Boolean).pop() || p;
-  function toast(msg) {
-    const t = $('#toast');
-    t.textContent = msg; t.style.display = 'block';
-    clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = 'none'), 8000);
+  // erros aparecem numa mensagem breve embaixo: os avisos do canto são só do status dos terminais
+  let flashTimer = null;
+  function toast(msg, ms = 6000) {
+    const el = $('#flash');
+    el.textContent = msg;
+    el.hidden = false;
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => { el.hidden = true; }, ms);
   }
 
   // ---------------------------------------------------------------- escolha do agente (sanfona)
@@ -1788,7 +1953,9 @@
         reconcile(m.state);
         if (pendingSession && sessions.has(pendingSession)) { switchTo(pendingSession); pendingSession = null; }
       }
-      if (m.t === 'warn') toast(m.msgs.join('\n'));
+      if (m.t === 'warn') {
+        toast(m.msgs.length === 1 ? m.msgs[0] : `${m.msgs.length} terminais não foram restaurados:\n${m.msgs.join('\n')}`, 12000);
+      }
     };
     ws.onclose = () => setTimeout(listen, 1000);
   }
