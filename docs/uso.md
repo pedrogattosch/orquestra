@@ -28,6 +28,8 @@ Arraste o fundo para mover a tela. Zoom com a roda do mouse no fundo, ou `Ctrl` 
 
 Para mandar um print a um agente, copie a imagem e cole no terminal com `Ctrl+V`: o Orquestra a salva num arquivo temporário e cola o caminho, como se a imagem tivesse sido arrastada para o terminal (o Claude Code mostra `[Image #1]`).
 
+`Ctrl+Enter` pula linha sem enviar a mensagem no Claude Code e no Codex. O `Ctrl+J` não faz nada nos terminais do Orquestra, para pular linha ser só com `Ctrl+Enter`. O `/copy` do Claude Code, e qualquer programa que copie pela sequência OSC 52, copia para a área de transferência.
+
 ## Status de cada terminal
 
 - 🟢 **trabalhando:** saiu algo no terminal nos últimos 2,5 s

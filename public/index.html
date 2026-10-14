@@ -890,15 +890,34 @@
     term.onBell(() => notify(n)); // agentes podem tocar o "sino" quando precisam de você
     // ...ou mandar uma notificação por sequência de escape (OSC 9 do iTerm2, 777 do Ghostty, 99 do kitty)
     for (const code of [9, 777, 99]) term.parser.registerOscHandler(code, () => { notify(n); return true; });
+    // Copiar pelo programa (OSC 52, usado pelo /copy do Claude Code): "c;<texto em base64>".
+    // O xterm não trata essa sequência sozinho.
+    term.parser.registerOscHandler(52, (data) => {
+      const b64 = data.slice(data.indexOf(';') + 1);
+      if (!b64 || b64 === '?') return true; // pedido de leitura da área de transferência: não é atendido
+      try {
+        const text = new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
+        navigator.clipboard.writeText(text).catch(() => toast('Não consegui copiar o texto.'));
+      } catch { toast('Não consegui copiar o texto.'); }
+      return true;
+    });
     fixMouseForZoom(term);
 
     // Copiar e colar como num editor. Sozinho, o xterm transforma Ctrl+C e Ctrl+V em ^C e ^V e nunca
     // copia nem cola. Ctrl+C copia quando há seleção (sem seleção, continua interrompendo); Ctrl+V
     // deixa o navegador disparar o "paste", tratado pelo xterm (texto) ou abaixo (imagem).
     // Ctrl+Shift+C e Ctrl+Shift+V também valem, como nos terminais do Linux.
+    // Ctrl+Enter manda uma quebra de linha (\n), que o Claude Code e o Codex usam para pular linha sem
+    // enviar; sozinho, o xterm o manda como Enter. O Ctrl+J, que manda o mesmo \n, fica desligado para
+    // pular linha ser só com Ctrl+Enter.
     term.attachCustomKeyEventHandler((e) => {
       if (!e.ctrlKey || e.altKey || e.metaKey) return true;
+      if (e.key === 'Enter' && !e.shiftKey) {
+        if (e.type === 'keydown') { e.preventDefault(); term.input('\n'); }
+        return false;
+      }
       const k = e.key.toLowerCase();
+      if (k === 'j' && !e.shiftKey) { if (e.type === 'keydown') e.preventDefault(); return false; }
       if (k === 'v') return false;
       if (k === 'c' && (e.shiftKey || term.hasSelection())) {
         if (e.type === 'keydown') {
