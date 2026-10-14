@@ -13,6 +13,7 @@ Cada aba é uma sessão com seu próprio quadro. **＋** cria uma sessão, duplo
 - **Finalizar** fecha o terminal: dá para só fechar ou fechar e excluir o worktree e a branch. A exclusão só acontece se nada for perdido: sem alterações não commitadas, branch já integrada na principal (ou sem commits próprios) e nenhum outro terminal aberto no mesmo worktree.
 - Se o processo do terminal terminar (por exemplo, com `exit`), aperte Enter dentro dele para reiniciá-lo na mesma pasta.
 - **Renomear terminal:** duplo clique no cabeçalho.
+- Se a branch mudar dentro do terminal (`git checkout`, `git switch`), o cabeçalho mostra a branch nova em cerca de um segundo; se o nome do terminal era o da branch, ele muda junto.
 
 ## Conexões (setas)
 

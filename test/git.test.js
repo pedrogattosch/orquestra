@@ -135,3 +135,13 @@ test('a pasta original não é tratada como worktree', () => {
   assert.strictEqual(g.worktreeOf(root), null);
   assert.strictEqual(g.checkDelete(root).ok, false);
 });
+
+test('headFile aponta para o HEAD da pasta original e de cada worktree', () => {
+  const root = newRepo();
+  const wt = g.ensureWorktree(root, 'tarefa');
+  fs.mkdirSync(path.join(root, 'sub'));
+  assert.strictEqual(g.headFile(root), path.join(root, '.git', 'HEAD'));
+  assert.strictEqual(g.headFile(path.join(root, 'sub')), path.join(root, '.git', 'HEAD'));
+  assert.match(fs.readFileSync(g.headFile(wt), 'utf8'), /refs\/heads\/tarefa/);
+  assert.strictEqual(g.headFile(fs.mkdtempSync(path.join(os.tmpdir(), 'orquestra-'))), null);
+});

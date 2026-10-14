@@ -156,6 +156,34 @@ function start({ dataDir, binDir, nodePath, port = 0 }) {
     return entry;
   }
 
+  // Troca de branch dentro do terminal (git checkout, git switch): o arquivo HEAD muda e a branch
+  // mostrada acompanha; o nome também, se ele for o da branch. watchFile compara pelo caminho, então
+  // continua valendo quando o git substitui o arquivo.
+  const branchWatch = new Map(); // id do terminal -> { file, listener }
+
+  function updateBranch(cfg) {
+    const branch = git.currentBranch(cfg.cwd);
+    if (branch === cfg.branch) return;
+    if (cfg.name && cfg.name === cfg.branch && branch) cfg.name = branch;
+    cfg.branch = branch;
+    changed();
+  }
+
+  function watchBranch(cfg) {
+    const file = git.headFile(cfg.cwd);
+    if (!file) return;
+    const listener = () => updateBranch(cfg);
+    fs.watchFile(file, { interval: 1000 }, listener);
+    branchWatch.set(cfg.id, { file, listener });
+    updateBranch(cfg); // ao restaurar, a branch pode ter mudado com o Orquestra fechado
+  }
+
+  function unwatchBranch(id) {
+    const w = branchWatch.get(id);
+    if (w) fs.unwatchFile(w.file, w.listener);
+    branchWatch.delete(id);
+  }
+
   function killTerminal(id) {
     const entry = live.get(id);
     live.delete(id);
@@ -215,6 +243,7 @@ function start({ dataDir, binDir, nodePath, port = 0 }) {
     session.terminals.push(cfg);
     if (parent) session.arrows.push({ id: uid(), from: parent.term.id, to: cfg.id, type: 'comando' });
     spawnTerminal(cfg);
+    watchBranch(cfg);
     changed();
     return cfg;
   }
@@ -230,7 +259,7 @@ function start({ dataDir, binDir, nodePath, port = 0 }) {
       session.notes = (session.notes || []).map(upgradeNote);
       const ids = new Set(session.terminals.map((t) => t.id));
       session.arrows = session.arrows.filter((a) => ids.has(a.from) && ids.has(a.to));
-      for (const t of session.terminals) spawnTerminal(t);
+      for (const t of session.terminals) { spawnTerminal(t); watchBranch(t); }
     }
     if (!state.sessions.length) newSession();
     if (!state.sessions.some((s) => s.id === state.activeSession)) state.activeSession = state.sessions[0].id;
@@ -385,6 +414,7 @@ function start({ dataDir, binDir, nodePath, port = 0 }) {
       if (check.reasons.length) throw new HttpError(409, check.reasons.join(' '), { reasons: check.reasons });
     }
     await killTerminal(term.id);
+    unwatchBranch(term.id);
     session.terminals = session.terminals.filter((t) => t !== term);
     session.arrows = session.arrows.filter((a) => a.from !== term.id && a.to !== term.id);
     changed();

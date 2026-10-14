@@ -48,6 +48,12 @@ function currentBranch(dir) {
   return b && b !== 'HEAD' ? b : '';
 }
 
+/** Arquivo HEAD do repositório ou worktree de `dir` (muda quando a branch muda), ou null fora do Git. */
+function headFile(dir) {
+  const p = tryGit(dir, ['rev-parse', '--git-path', 'HEAD']);
+  return p ? path.resolve(dir, p) : null;
+}
+
 /** O worktree (que não é a pasta original) em que `dir` está, ou null. */
 function worktreeOf(dir) {
   const info = repoInfo(dir);
@@ -139,4 +145,4 @@ function deleteWorktree(dir) {
   if (branch) git(root, ['branch', '-D', branch]); // a verificação acima já garantiu que nada se perde
 }
 
-module.exports = { repoInfo, currentBranch, worktreeOf, ensureWorktree, mainBranch, checkDelete, deleteWorktree };
+module.exports = { repoInfo, currentBranch, headFile, worktreeOf, ensureWorktree, mainBranch, checkDelete, deleteWorktree };
