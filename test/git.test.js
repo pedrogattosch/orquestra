@@ -10,6 +10,10 @@ Object.assign(process.env, {
   GIT_AUTHOR_NAME: 'teste', GIT_AUTHOR_EMAIL: 'teste@exemplo.com',
   GIT_COMMITTER_NAME: 'teste', GIT_COMMITTER_EMAIL: 'teste@exemplo.com',
 });
+// rodando num terminal do Orquestra, o git é o intermediário dele: sem isto, cada worktree
+// criada pelos testes abriria um terminal de verdade no Orquestra
+delete process.env.ORQUESTRA_URL;
+delete process.env.ORQUESTRA_TERMINAL_ID;
 
 const run = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 
