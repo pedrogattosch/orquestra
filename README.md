@@ -13,7 +13,8 @@ Precisa ter Git, VS Code (comando `code`) e os agentes que você quiser usar (`c
 
 ## Uso rápido
 
-- **Terminal** (`N`): escolha a pasta, onde abrir e o agente.
+- **Sessão** (**＋**): escolha a pasta do projeto.
+- **Terminal** (`N`): escolha onde abrir no projeto da sessão (pasta, worktree ou branch) e o agente.
 - **Nova conexão** (`C`): escolha o tipo e clique no terminal de origem e depois no de destino.
 - **Anotação** (`A`): escolha tamanho e cor e clique no quadro onde quer escrever.
 

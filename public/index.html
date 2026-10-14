@@ -429,12 +429,13 @@
   <form id="form" autocomplete="off">
     <div class="dlg-head"><div class="row"><h2 id="newTitle">Novo terminal</h2><kbd>N</kbd></div></div>
     <div class="dlg-body">
-      <label class="f">Pasta do projeto
+      <label class="f" id="dirRow">Pasta do projeto
         <div class="row">
           <input name="dir" class="mono" required placeholder="digite o caminho ou clique em Procurar">
-          <button type="button" class="btn" id="btnBrowse">Procurar…</button>
+          <button type="button" class="btn browse">Procurar…</button>
         </div>
       </label>
+      <div class="hint" id="projectInfo" hidden><span></span> <button type="button" class="ghost" id="btnChangeProject">Trocar</button></div>
       <label class="f">Onde abrir
         <select name="where" disabled></select>
       </label>
@@ -445,7 +446,7 @@
         <select name="existingBranch"></select>
       </label>
       <label class="f" id="wtNameRow" hidden>Nome da worktree
-        <input name="worktreeName" class="mono" placeholder="nome da pasta, ao lado do projeto">
+        <input name="worktreeName" class="mono" placeholder="nome da pasta, ex.: minha-tarefa">
       </label>
       <div class="hint" id="gitHint"></div>
       <fieldset class="f">
@@ -465,6 +466,27 @@
     <div class="dlg-foot">
       <button type="button" class="btn" id="btnCancelNew">Cancelar</button>
       <button type="submit" class="btn primary" id="btnOpen">Abrir</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- nova sessão -->
+<dialog id="dlgSession" aria-labelledby="sessionTitle">
+  <form id="sessionForm" autocomplete="off">
+    <div class="dlg-head"><h2 id="sessionTitle">Nova sessão</h2></div>
+    <div class="dlg-body">
+      <label class="f">Pasta do projeto
+        <div class="row">
+          <input name="dir" class="mono" required placeholder="digite o caminho ou clique em Procurar">
+          <button type="button" class="btn browse">Procurar…</button>
+        </div>
+      </label>
+      <div class="hint">Os terminais da sessão abrem nesse projeto. Em cada um, você só escolhe a worktree e a branch.</div>
+      <div class="err" id="sessionErr"></div>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn" id="btnCancelSession">Cancelar</button>
+      <button type="submit" class="btn primary" id="btnCreateSession">Criar</button>
     </div>
   </form>
 </dialog>
@@ -742,6 +764,7 @@
       const s = sessions.get(data.id) || makeSession(data);
       s.name = data.name;
       s.arrows = data.arrows;
+      s.project = data.project || '';
       const nameEl = s.tab.querySelector('.tname');
       if (!nameEl.isContentEditable) nameEl.textContent = data.name;
       for (const cfg of data.terminals) {
@@ -1530,22 +1553,33 @@
     setAgent('');
     setAccOpen(true);
     renderGit();
-    if (!app) $('#btnBrowse').hidden = true;
+    // com o projeto da sessão definido, o terminal só escolhe onde abrir nele
+    const project = cur().project;
+    showProjectField(!project);
+    $('#projectInfo span').textContent = project ? `Projeto: ${shortPath(project)}` : '';
+    if (project) { form.dir.value = project; checkDir(); }
     dlgNew.showModal();
-    form.dir.focus();
+    (project ? form.where : form.dir).focus();
   }
+
+  // o campo de pasta só aparece sem projeto na sessão, ao clicar em Trocar ou se a pasta do projeto sumiu
+  function showProjectField(on) {
+    $('#dirRow').hidden = !on;
+    $('#projectInfo').hidden = on;
+  }
+  $('#btnChangeProject').addEventListener('click', () => { showProjectField(true); form.dir.focus(); form.dir.select(); });
 
   function renderGit() {
     const where = form.where;
     const hint = $('#gitHint');
-    where.innerHTML = '<option value="here">Na pasta escolhida</option>';
+    where.innerHTML = '<option value="here">Na pasta do projeto</option>';
     where.disabled = true;
     hint.textContent = '';
-    if (gitInfo && !gitInfo.exists) hint.textContent = 'Pasta não encontrada.';
+    if (gitInfo && !gitInfo.exists) { hint.textContent = 'Pasta não encontrada.'; showProjectField(true); }
     else if (gitInfo && !gitInfo.repo) hint.textContent = 'Não é um repositório Git: o terminal abre na pasta.';
     else if (gitInfo) {
       const r = gitInfo.repo;
-      where.options[0].textContent = `Na pasta escolhida${r.currentBranch && r.top === r.root ? ` (${r.currentBranch})` : ''}`;
+      where.options[0].textContent = `Na pasta do projeto${r.currentBranch && r.top === r.root ? ` (${r.currentBranch})` : ''}`;
       for (const wt of r.worktrees) {
         where.add(new Option(`Worktree ${basename(wt.path)}${wt.branch ? ` (${wt.branch})` : ''}`, 'wt:' + wt.path));
       }
@@ -1600,10 +1634,14 @@
   form.branch.addEventListener('input', renderWtName);
   form.worktreeName.addEventListener('input', () => { wtNameEdited = form.worktreeName.value.trim() !== ''; });
   form.existingBranch.addEventListener('change', renderWtName);
-  $('#btnBrowse').addEventListener('click', async () => {
-    const dir = await app.pickFolder(form.dir.value.trim() || undefined);
-    if (dir) { form.dir.value = dir; checkDir(); }
-  });
+  for (const btn of document.querySelectorAll('.browse')) {
+    if (!app) { btn.hidden = true; continue; }
+    const input = btn.closest('.row').querySelector('input');
+    btn.addEventListener('click', async () => {
+      const dir = await app.pickFolder(input.value.trim() || undefined);
+      if (dir) { input.value = dir; input.dispatchEvent(new Event('input')); }
+    });
+  }
   $('#btnCancelNew').addEventListener('click', () => dlgNew.close());
 
   form.addEventListener('submit', async (e) => {
@@ -1616,6 +1654,7 @@
       sessionId: active,
       agent: form.agent.value,
       dir: where.startsWith('wt:') ? where.slice(3) : form.dir.value.trim(),
+      project: form.dir.value.trim(),
       worktreeBranch: where === 'new' ? form.branch.value.trim() : where === 'existing' ? form.existingBranch.value : '',
       newBranch: where === 'new',
       worktreeName: where === 'new' || where === 'existing' ? form.worktreeName.value.trim() : '',
@@ -1625,6 +1664,11 @@
     $('#btnOpen').disabled = true;
     $('#formErr').textContent = '';
     try {
+      // outra pasta escolhida em Trocar vira o projeto da sessão
+      const s = cur();
+      if (s.project && body.project && body.project !== s.project) {
+        await api('PATCH', `/api/sessions/${s.id}`, { project: body.project });
+      }
       const cfg = await api('POST', '/api/terminals', body);
       dlgNew.close();
       const n = nodes.get(cfg.id);
@@ -1682,9 +1726,31 @@
   $('#btnNew').onclick = openNewDialog;
   $('#btnConnect').onclick = () => setMode(mode === 'connect' ? null : 'connect');
   $('#btnNote').onclick = () => setMode(mode === 'note' ? null : 'note');
-  $('#btnAddSession').onclick = () => api('POST', '/api/sessions')
-    .then((s) => { pendingSession = s.id; if (sessions.has(s.id)) switchTo(s.id); })
-    .catch((err) => toast(err.message));
+  // nova sessão: o projeto é escolhido aqui, e os terminais dela abrem nele
+  const dlgSession = $('#dlgSession');
+  const sessionForm = $('#sessionForm');
+  $('#btnAddSession').onclick = () => {
+    sessionForm.reset();
+    $('#sessionErr').textContent = '';
+    dlgSession.showModal();
+    sessionForm.dir.focus();
+  };
+  $('#btnCancelSession').addEventListener('click', () => dlgSession.close());
+  sessionForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('#btnCreateSession').disabled = true;
+    $('#sessionErr').textContent = '';
+    try {
+      const s = await api('POST', '/api/sessions', { project: sessionForm.dir.value.trim() });
+      dlgSession.close();
+      pendingSession = s.id;
+      if (sessions.has(s.id)) switchTo(s.id);
+    } catch (err) {
+      $('#sessionErr').textContent = err.message;
+    } finally {
+      $('#btnCreateSession').disabled = false;
+    }
+  });
   $('#btnFit').onclick = fitAll;
   $('#btnZoomIn').onclick = () => zoomAt(1.2, viewport.clientWidth / 2, viewport.clientHeight / 2);
   $('#btnZoomOut').onclick = () => zoomAt(1 / 1.2, viewport.clientWidth / 2, viewport.clientHeight / 2);
@@ -1696,7 +1762,7 @@
 
   window.addEventListener('keydown', (e) => {
     const typing = e.target.closest && (e.target.closest('.xterm') || e.target.matches('input, select, textarea, [contenteditable="true"]'));
-    if (typing || dlgNew.open || dlgFinish.open || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (typing || dlgNew.open || dlgSession.open || dlgFinish.open || e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key.toLowerCase();
     if (k === 'n') { e.preventDefault(); openNewDialog(); }
     if (k === 'c') { e.preventDefault(); setMode(mode === 'connect' ? null : 'connect'); }

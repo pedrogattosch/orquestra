@@ -79,11 +79,12 @@ function start({ dataDir, binDir, nodePath, port = 0 }) {
     return { ...state, live: Object.fromEntries([...live].map(([id, l]) => [id, !l.exited])) };
   }
 
-  function newSession(name) {
+  function newSession(name, project) {
     const used = new Set(state.sessions.map((s) => s.name));
     let n = state.sessions.length + 1;
     while (!name && used.has(`Sessão ${n}`)) n++;
     const s = { id: uid(), name: name || `Sessão ${n}`, view: { x: 0, y: 0, s: 1 }, terminals: [], arrows: [], notes: [] };
+    if (project) s.project = project;
     state.sessions.push(s);
     return s;
   }
@@ -244,6 +245,9 @@ function start({ dataDir, binDir, nodePath, port = 0 }) {
       color: COLORS[session.terminals.length % COLORS.length],
     };
     session.terminals.push(cfg);
+    // numa sessão sem projeto (a primeira do aplicativo ou uma salva antes), a pasta do primeiro terminal vira o
+    // projeto dela (project: pasta digitada, que difere de dir quando se escolhe um worktree existente)
+    if (!parent && !session.project) session.project = path.resolve(expandHome(String(body.project || body.dir).trim()));
     if (parent) session.arrows.push({ id: uid(), from: parent.term.id, to: cfg.id, type: 'comando' });
     spawnTerminal(cfg);
     watchBranch(cfg);
@@ -319,8 +323,11 @@ function start({ dataDir, binDir, nodePath, port = 0 }) {
     return { exists: true, dir, repo: git.repoInfo(dir) };
   }));
 
-  app.post('/api/sessions', route(() => {
-    const s = newSession();
+  app.post('/api/sessions', route((req) => {
+    const raw = String(req.body.project || '').trim();
+    const project = raw && path.resolve(expandHome(raw));
+    if (raw && !isDir(project)) throw new HttpError(400, `Pasta não encontrada: ${project}`);
+    const s = newSession(project && path.basename(project), project);
     state.activeSession = s.id;
     changed();
     return s;
@@ -330,6 +337,11 @@ function start({ dataDir, binDir, nodePath, port = 0 }) {
     const s = getSession(req.params.id);
     if (typeof req.body.name === 'string' && req.body.name.trim()) s.name = req.body.name.trim();
     if (req.body.view) s.view = { x: +req.body.view.x || 0, y: +req.body.view.y || 0, s: +req.body.view.s || 1 };
+    if (typeof req.body.project === 'string' && req.body.project.trim()) {
+      const project = path.resolve(expandHome(req.body.project.trim()));
+      if (!isDir(project)) throw new HttpError(400, `Pasta não encontrada: ${project}`);
+      s.project = project;
+    }
     changed();
   }));
 

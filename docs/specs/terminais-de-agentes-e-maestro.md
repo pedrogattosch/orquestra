@@ -30,11 +30,11 @@ A pessoa usuária já tem skills (por exemplo, `/iniciar`) que criam branch e wo
 2. Instalador e desinstalador para Ubuntu e para Windows.
 3. Execução em segundo plano: fechar a janela não encerra os terminais; reabrir o aplicativo volta ao estado em que foi deixado.
 4. Ação explícita para sair do aplicativo, com confirmação, que encerra os terminais.
-5. Várias sessões, exibidas em abas, cada uma com seu próprio quadro, terminais e setas, com criação, troca, renomeação e fechamento de sessões, sendo o fechamento permitido só quando a sessão não tem terminais abertos.
+5. Várias sessões, exibidas em abas, cada uma com seu próprio projeto, quadro, terminais e setas, com criação (escolhendo a pasta do projeto), troca, renomeação e fechamento de sessões, sendo o fechamento permitido só quando a sessão não tem terminais abertos.
 6. Restauração das sessões e do layout ao abrir o aplicativo depois de ter saído dele ou de reiniciar o computador.
 7. Formulário de novo terminal com:
    - nome da worktree, preenchido com `<projeto>-<branch>` e editável, ao criar um worktree;
-   - seleção da pasta do projeto, digitando o caminho ou navegando pelas pastas, sem pasta pré-preenchida;
+   - pasta do projeto vinda da sessão; só numa sessão ainda sem projeto, seleção da pasta, digitando o caminho ou navegando pelas pastas;
    - seleção de worktree entre os existentes no projeto escolhido, ou criação de um novo;
    - seleção de branch entre as existentes no projeto escolhido, ou criação de uma nova, com qualquer nome válido no Git, partindo da branch atual da pasta original do projeto;
    - seleção do agente a iniciar: Claude, Codex ou nenhum.
@@ -118,11 +118,11 @@ A pessoa usuária já tem skills (por exemplo, `/iniciar`) que criam branch e wo
 
 - O Orquestra tem várias sessões. Cada sessão tem seu próprio quadro, com seus terminais e setas.
 - A pessoa usuária pode:
-  - criar uma sessão nova, que começa com o quadro vazio;
+  - criar uma sessão nova, que começa com o quadro vazio, escolhendo a pasta do projeto dela (digitando o caminho ou navegando pelas pastas); a sessão recebe o nome dessa pasta;
   - dar nome a uma sessão e renomeá-la;
   - ver as sessões em abas e trocar de uma para outra;
   - fechar uma sessão, o que remove a aba dela.
-- Uma sessão não está presa a um projeto: terminais da mesma sessão podem estar em pastas diferentes.
+- Cada sessão tem um projeto, e os terminais abertos pelo formulário abrem nele. Uma sessão sem projeto (a primeira do aplicativo ou uma criada antes dessa regra) recebe como projeto a pasta do primeiro terminal aberto pelo formulário. Terminais abertos por outros terminais podem estar em outras pastas.
 - Trocar de sessão não encerra nada: os terminais das outras sessões continuam rodando.
 - Na primeira vez em que o Orquestra é aberto, existe uma sessão vazia.
 - Um terminal aberto por outro terminal entra na mesma sessão do terminal que pediu a abertura.
@@ -135,10 +135,11 @@ A pessoa usuária já tem skills (por exemplo, `/iniciar`) que criam branch e wo
 
 - O terminal é criado na sessão que está aberta.
 - O formulário não tem mais o campo de comando inicial.
-- O campo de pasta começa vazio, sem pasta sugerida. A pessoa usuária seleciona a pasta do projeto de uma destas formas:
+- Quando a sessão tem projeto, o formulário não pede pasta: mostra o projeto da sessão, e a pessoa usuária escolhe apenas onde abrir nele e o agente. A opção **Trocar** mostra o campo de pasta; o terminal aberto com outra pasta faz dela o novo projeto da sessão. Se a pasta do projeto não existir mais, o campo de pasta aparece sozinho.
+- Quando a sessão ainda não tem projeto, o campo de pasta começa vazio e a pessoa usuária seleciona a pasta do projeto de uma destas formas:
   - digitando o caminho;
   - navegando pelas pastas.
-- Se a pasta for um repositório Git, o formulário mostra os worktrees existentes desse repositório e as branches existentes.
+- Se a pasta do projeto for um repositório Git, o formulário mostra os worktrees existentes desse repositório e as branches existentes.
 - A pessoa usuária pode:
   - abrir o terminal na pasta principal do projeto;
   - abrir o terminal em um worktree existente;
@@ -249,10 +250,15 @@ A pessoa usuária já tem skills (por exemplo, `/iniciar`) que criam branch e wo
 ### Sessões
 
 - Dado o Orquestra aberto pela primeira vez, quando a janela aparece, então existe uma sessão com o quadro vazio.
-- Dado uma sessão aberta, quando a pessoa usuária cria uma sessão nova, então a nova sessão abre em uma aba nova com o quadro vazio e a anterior continua em sua aba.
+- Dado uma sessão aberta, quando a pessoa usuária cria uma sessão nova escolhendo a pasta de um projeto, então a nova sessão abre em uma aba nova, com o nome da pasta e o quadro vazio, e a anterior continua em sua aba.
+- Dado o formulário de nova sessão, quando a pessoa usuária informa uma pasta que não existe, então a sessão não é criada e o Orquestra informa que a pasta não foi encontrada.
+- Dado uma sessão com projeto, quando a pessoa usuária abre o formulário de novo terminal, então ele não pede pasta, mostra o projeto da sessão e oferece a pasta do projeto, seus worktrees e suas branches.
+- Dado uma sessão com projeto, quando a pessoa usuária usa **Trocar** e abre um terminal em outra pasta, então essa pasta vira o projeto da sessão.
+- Dado uma sessão cujo projeto não existe mais, quando a pessoa usuária abre o formulário de novo terminal, então o campo de pasta aparece para escolher outra.
+- Dado uma sessão sem projeto, quando a pessoa usuária abre o primeiro terminal pelo formulário, então a pasta escolhida vira o projeto da sessão e os próximos terminais não pedem pasta.
 - Dado uma sessão, quando a pessoa usuária a renomeia, então o novo nome aparece na aba da sessão.
 - Dado terminais rodando na sessão A, quando a pessoa usuária troca para a sessão B, então os terminais de A continuam rodando e, ao voltar para A, estão como foram deixados.
-- Dado uma sessão, quando a pessoa usuária abre terminais em pastas de projetos diferentes, então todos aparecem no quadro dessa sessão.
+- Dado uma sessão, quando terminais dela abrem terminais em pastas de outros projetos, então todos aparecem no quadro dessa sessão.
 - Dado um terminal na sessão A, quando ele pede a abertura de um novo terminal, então o novo terminal aparece na sessão A.
 - Dado um terminal da sessão B com status "precisa de você", quando a pessoa usuária está na sessão A, então a aba da sessão B mostra um aviso.
 - Dado a aba de uma sessão com aviso, quando nenhum terminal dessa sessão precisa mais de atenção, então o aviso some.
@@ -263,8 +269,8 @@ A pessoa usuária já tem skills (por exemplo, `/iniciar`) que criam branch e wo
 ### Novo terminal
 
 - Dado uma sessão aberta, quando a pessoa usuária cria um terminal pelo formulário, então ele aparece no quadro dessa sessão.
-- Dado o formulário de novo terminal, quando ele é aberto, então não há campo de comando inicial e o campo de pasta está vazio, mesmo que já tenham sido abertos terminais antes.
-- Dado o formulário de novo terminal, quando a pessoa usuária digita o caminho de uma pasta ou a escolhe navegando pelas pastas, então essa pasta fica selecionada.
+- Dado o formulário de novo terminal numa sessão sem projeto, quando ele é aberto, então não há campo de comando inicial e o campo de pasta está vazio.
+- Dado o formulário de novo terminal numa sessão sem projeto, quando a pessoa usuária digita o caminho de uma pasta ou a escolhe navegando pelas pastas, então essa pasta fica selecionada.
 - Dado o formulário de novo terminal, quando a pessoa usuária escolhe o agente Claude, então o terminal abre e inicia o Claude na pasta escolhida.
 - Dado o formulário de novo terminal, quando a pessoa usuária escolhe o agente Codex, então o terminal abre e inicia o Codex na pasta escolhida.
 - Dado o formulário de novo terminal, quando a pessoa usuária escolhe nenhum agente, então o terminal abre só com o shell.
@@ -327,7 +333,7 @@ A pessoa usuária já tem skills (por exemplo, `/iniciar`) que criam branch e wo
 - O Orquestra não faz commit, push nem merge.
 - O Orquestra aceita qualquer nome de branch válido no Git; convenções de nome ficam nas skills usadas no maestro.
 - O Orquestra nunca exclui worktree com alterações não commitadas nem branch com commits próprios sem merge confirmado na branch principal.
-- Comportamentos atuais (tela infinita, status, sobrevivência a recarregamentos da interface, atalhos, notificações), exceto a organização em grade, o campo de comando inicial e a pasta pré-preenchida, permanecem.
+- Comportamentos atuais (tela infinita, status, sobrevivência a recarregamentos da interface, atalhos, notificações), exceto a organização em grade e o campo de comando inicial, permanecem. A pasta do formulário de novo terminal vem do projeto da sessão, como descrito em **Novo terminal**.
 - Git, VS Code e os CLIs do Claude e do Codex precisam estar instalados na máquina; o Orquestra não os instala.
 
 ## Decisões pendentes
